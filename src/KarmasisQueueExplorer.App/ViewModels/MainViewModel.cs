@@ -19,6 +19,9 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
     private ObservableCollection<QueueGroupViewModel> _queueGroups = [];
 
     [ObservableProperty]
+    private string _targetMachineName = ".";
+
+    [ObservableProperty]
     private ObservableCollection<MessageInfo> _messages = [];
 
     [ObservableProperty]
@@ -130,14 +133,14 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
         {
             IsBusy = true;
             WarningMessage = string.Empty;
-            StatusMessage = "Loading local MSMQ queues...";
+            StatusMessage = $"Loading MSMQ queues from {TargetMachineName}...";
 
-            var queues = await msmqService.GetQueuesAsync(".", cancellationToken);
+            var queues = await msmqService.GetQueuesAsync(TargetMachineName, cancellationToken);
             Queues = new ObservableCollection<QueueNodeViewModel>(queues.Select(queue => new QueueNodeViewModel(queue)));
             QueueGroups = BuildQueueGroups(Queues);
             StatusMessage = Queues.Count == 0
-                ? "No local MSMQ queues found."
-                : $"Loaded {Queues.Count} local queue(s).";
+                ? $"No MSMQ queues found on {TargetMachineName}"
+                : $"Loaded {Queues.Count} queue(s) from {TargetMachineName}";
         }
         catch (OperationCanceledException)
         {

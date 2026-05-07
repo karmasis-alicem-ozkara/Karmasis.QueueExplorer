@@ -12,17 +12,22 @@ public sealed class MsmqService : IMsmqService
     private const int MqDenyNone = 0;
 
     private readonly ILogger<MsmqService> _logger;
-    private readonly string _lqsPath;
+    private readonly Func<string, string> _lqsPathResolver;
 
     public MsmqService(ILogger<MsmqService> logger)
-        : this(logger, Path.Combine(Environment.SystemDirectory, "msmq", "storage", "lqs"))
+        : this(logger, ResolveDefaultLqsPath)
     {
     }
 
     public MsmqService(ILogger<MsmqService> logger, string lqsPath)
+        : this(logger, _ => lqsPath)
+    {
+    }
+
+    public MsmqService(ILogger<MsmqService> logger, Func<string, string> lqsPathResolver)
     {
         _logger = logger;
-        _lqsPath = lqsPath;
+        _lqsPathResolver = lqsPathResolver;
     }
 
     /// <inheritdoc />
@@ -32,13 +37,7 @@ public sealed class MsmqService : IMsmqService
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (machineName != "." && !machineName.Equals(Environment.MachineName, StringComparison.OrdinalIgnoreCase))
-            {
-                _logger.LogInformation("Remote MSMQ discovery was requested for {MachineName}, but remote support starts in Phase 6.", machineName);
-                return [];
-            }
-
-            return DiscoverLocalQueues(cancellationToken);
+            return DiscoverQueues(NormalizeMachineName(machineName), cancellationToken);
         }, cancellationToken);
     }
 
@@ -219,24 +218,27 @@ public sealed class MsmqService : IMsmqService
         }
     }
 
-    private IReadOnlyList<QueueInfo> DiscoverLocalQueues(CancellationToken cancellationToken)
+    private IReadOnlyList<QueueInfo> DiscoverQueues(string machineName, CancellationToken cancellationToken)
     {
         // .NET 8 does not include the legacy System.Messaging assembly. The first iteration
         // keeps MSMQ access behind IMsmqService and discovers local private queues from the
         // MSMQ LQS metadata directory when available. A richer MSMQ adapter will be added next.
         var queues = new List<QueueInfo>();
+        var lqsPath = _lqsPathResolver(machineName);
 
-        if (!Directory.Exists(_lqsPath))
+        if (!Directory.Exists(lqsPath))
         {
-            _logger.LogWarning("MSMQ LQS directory was not found at {LqsPath}. MSMQ Windows Feature may be disabled.", _lqsPath);
-            throw new MsmqUnavailableException("MSMQ appears to be disabled. Enable the 'Microsoft Message Queue (MSMQ) Server' Windows Feature and refresh.");
+            _logger.LogWarning("MSMQ LQS directory was not found at {LqsPath} for machine {MachineName}. MSMQ may be disabled or remote admin access may be unavailable.", lqsPath, machineName);
+            throw new MsmqUnavailableException(IsLocalMachine(machineName)
+                ? "MSMQ appears to be disabled. Enable the 'Microsoft Message Queue (MSMQ) Server' Windows Feature and refresh."
+                : $"Could not access MSMQ metadata on '{machineName}'. Ensure MSMQ is enabled, remote admin share access is allowed, and you have permission to \\\\{machineName}\\admin$. ");
         }
 
-        foreach (var filePath in Directory.EnumerateFiles(_lqsPath))
+        foreach (var filePath in Directory.EnumerateFiles(lqsPath))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var metadata = TryReadQueueMetadata(filePath);
+            var metadata = TryReadQueueMetadata(filePath, machineName);
             if (metadata is null)
             {
                 continue;
@@ -245,7 +247,7 @@ public sealed class MsmqService : IMsmqService
             queues.Add(new QueueInfo(
                 metadata.Name,
                 metadata.Path,
-                Environment.MachineName,
+                IsLocalMachine(machineName) ? Environment.MachineName : machineName,
                 metadata.Type,
                 TryGetLocalQueueCount(metadata.Path)));
         }
@@ -255,7 +257,7 @@ public sealed class MsmqService : IMsmqService
             .ToArray();
     }
 
-    private LqsQueueMetadata? TryReadQueueMetadata(string filePath)
+    private LqsQueueMetadata? TryReadQueueMetadata(string filePath, string machineName)
     {
         try
         {
@@ -288,8 +290,8 @@ public sealed class MsmqService : IMsmqService
             }
 
             var name = NormalizeQueueName(rawName);
-            var path = FirstNonEmpty(values, "PathName") ?? $@".\private$\{name}";
-            path = NormalizeQueuePath(path, name);
+            var path = FirstNonEmpty(values, "PathName") ?? BuildPrivateQueuePath(machineName, name);
+            path = NormalizeQueuePath(path, machineName, name);
 
             return new LqsQueueMetadata(name, path, InferQueueType(path));
         }
@@ -387,15 +389,53 @@ public sealed class MsmqService : IMsmqService
         return name.Trim();
     }
 
-    private static string NormalizeQueuePath(string rawPath, string queueName)
+    private static string NormalizeQueuePath(string rawPath, string machineName, string queueName)
     {
         var path = rawPath.Trim().Replace('/', '\\');
         if (path.Contains("private$", StringComparison.OrdinalIgnoreCase))
         {
+            return IsLocalMachine(machineName)
+                ? path
+                : ReplaceQueuePathMachine(path, machineName);
+        }
+
+        return BuildPrivateQueuePath(machineName, queueName);
+    }
+
+    private static string BuildPrivateQueuePath(string machineName, string queueName)
+    {
+        return IsLocalMachine(machineName)
+            ? $@".\private$\{queueName}"
+            : $@"{machineName}\private$\{queueName}";
+    }
+
+    private static string ReplaceQueuePathMachine(string path, string machineName)
+    {
+        var marker = "private$\\";
+        var markerIndex = path.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (markerIndex < 0)
+        {
             return path;
         }
 
-        return $@".\private$\{queueName}";
+        return $@"{machineName}\{path[markerIndex..]}";
+    }
+
+    private static string NormalizeMachineName(string machineName)
+    {
+        return string.IsNullOrWhiteSpace(machineName) ? "." : machineName.Trim().Trim('\\');
+    }
+
+    private static bool IsLocalMachine(string machineName)
+    {
+        return machineName == "." || machineName.Equals("localhost", StringComparison.OrdinalIgnoreCase) || machineName.Equals(Environment.MachineName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ResolveDefaultLqsPath(string machineName)
+    {
+        return IsLocalMachine(machineName)
+            ? Path.Combine(Environment.SystemDirectory, "msmq", "storage", "lqs")
+            : $@"\\{machineName}\admin$\System32\msmq\storage\lqs";
     }
 
     private static QueueType InferQueueType(string path)

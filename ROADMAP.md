@@ -92,6 +92,9 @@ KarmasisQueueExplorer is an in-house Windows desktop application for browsing, v
 - Add connection dialog.
 - Add connection profiles.
 - Support machine name/IP connection targets.
+- Support remote private queue discovery through the remote MSMQ LQS metadata path when administrative file access is available.
+- Build remote queue paths in `machine\private$\queueName` format so message browsing can use the same non-destructive peek flow.
+- Surface remote connection/access failures as actionable warnings instead of crashing.
 - Handle MSMQ remote access errors gracefully.
 - Display multiple connections in the queue tree.
 

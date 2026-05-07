@@ -26,8 +26,30 @@ public sealed class MainViewModelTests
             Assert.That(viewModel.QueueGroups.Single(group => group.Name == "Private Queues").Count, Is.EqualTo(2));
             Assert.That(viewModel.QueueGroups.Single(group => group.Name == "System Queues").Count, Is.EqualTo(1));
             Assert.That(viewModel.QueueGroups.Any(group => group.Name == "Public Queues"), Is.False);
-            Assert.That(viewModel.StatusMessage, Is.EqualTo("Loaded 3 local queue(s)."));
+            Assert.That(viewModel.StatusMessage, Is.EqualTo("Loaded 3 queue(s) from ."));
             Assert.That(viewModel.IsBusy, Is.False);
+        });
+    }
+
+    [Test]
+    public async Task LoadLocalQueuesCommand_UsesConfiguredTargetMachine()
+    {
+        var service = new StubMsmqService(
+        [
+            new QueueInfo("orders", @"REMOTE-SRV\private$\orders", "REMOTE-SRV", QueueType.Private)
+        ]);
+        var viewModel = new MainViewModel(service)
+        {
+            TargetMachineName = "REMOTE-SRV"
+        };
+
+        await viewModel.LoadLocalQueuesCommand.ExecuteAsync(null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.LastMachineName, Is.EqualTo("REMOTE-SRV"));
+            Assert.That(viewModel.Queues.Single().MachineName, Is.EqualTo("REMOTE-SRV"));
+            Assert.That(viewModel.StatusMessage, Is.EqualTo("Loaded 1 queue(s) from REMOTE-SRV"));
         });
     }
 
@@ -147,8 +169,11 @@ public sealed class MainViewModelTests
 
     private sealed class StubMsmqService(IReadOnlyList<QueueInfo> queues, IReadOnlyList<MessageInfo>? messages = null) : IMsmqService
     {
+        public string? LastMachineName { get; private set; }
+
         public Task<IReadOnlyList<QueueInfo>> GetQueuesAsync(string machineName, CancellationToken cancellationToken = default)
         {
+            LastMachineName = machineName;
             return Task.FromResult(queues);
         }
 

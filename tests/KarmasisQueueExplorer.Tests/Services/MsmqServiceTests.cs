@@ -42,6 +42,22 @@ public sealed class MsmqServiceTests
     }
 
     [Test]
+    public async Task GetQueuesAsync_WhenRemoteMachineProvided_BuildsRemotePrivateQueuePaths()
+    {
+        await File.WriteAllTextAsync(Path.Combine(_tempDirectory, "orders"), "QueueName=.\\private$\\orders");
+        var service = new MsmqService(NullLogger<MsmqService>.Instance, machineName => machineName == "REMOTE-SRV" ? _tempDirectory : "missing");
+
+        var queues = await service.GetQueuesAsync("REMOTE-SRV");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(queues, Has.Count.EqualTo(1));
+            Assert.That(queues.Single().MachineName, Is.EqualTo("REMOTE-SRV"));
+            Assert.That(queues.Single().Path, Is.EqualTo(@"REMOTE-SRV\private$\orders"));
+        });
+    }
+
+    [Test]
     public void GetQueuesAsync_WhenLqsDirectoryMissing_ThrowsMsmqUnavailableException()
     {
         var missingPath = Path.Combine(_tempDirectory, "missing");
