@@ -8,11 +8,20 @@ namespace KarmasisQueueExplorer.App.ViewModels;
 
 public sealed partial class MainViewModel(IMsmqService msmqService) : ObservableObject
 {
+    private readonly SynchronizationContext? _synchronizationContext = SynchronizationContext.Current;
+    private CancellationTokenSource? _messageRefreshCts;
+
     [ObservableProperty]
     private ObservableCollection<QueueNodeViewModel> _queues = [];
 
     [ObservableProperty]
     private ObservableCollection<QueueGroupViewModel> _queueGroups = [];
+
+    [ObservableProperty]
+    private ObservableCollection<MessageInfo> _messages = [];
+
+    [ObservableProperty]
+    private MessageInfo? _selectedMessage;
 
     [ObservableProperty]
     private QueueNodeViewModel? _selectedQueue;
@@ -31,6 +40,18 @@ public sealed partial class MainViewModel(IMsmqService msmqService) : Observable
     [ObservableProperty]
     private bool _isBusy;
 
+    [ObservableProperty]
+    private bool _isLoadingMessages;
+
+    [ObservableProperty]
+    private bool _isAutoRefreshEnabled = true;
+
+    [ObservableProperty]
+    private int _autoRefreshIntervalSeconds = 2;
+
+    [ObservableProperty]
+    private DateTime? _lastMessageRefreshTime;
+
     partial void OnWarningMessageChanged(string value)
     {
         OnPropertyChanged(nameof(HasWarning));
@@ -43,9 +64,28 @@ public sealed partial class MainViewModel(IMsmqService msmqService) : Observable
 
     partial void OnSelectedQueueChanged(QueueNodeViewModel? value)
     {
+        _messageRefreshCts?.Cancel();
+        Messages = [];
+        SelectedMessage = null;
+
         if (value is not null)
         {
             StatusMessage = $"Selected queue: {value.Path}";
+            _ = LoadMessagesAndStartAutoRefreshAsync(value);
+        }
+    }
+
+    partial void OnIsAutoRefreshEnabledChanged(bool value)
+    {
+        if (SelectedQueue is null)
+        {
+            return;
+        }
+
+        _messageRefreshCts?.Cancel();
+        if (value)
+        {
+            _ = LoadMessagesAndStartAutoRefreshAsync(SelectedQueue);
         }
     }
 
@@ -84,6 +124,111 @@ public sealed partial class MainViewModel(IMsmqService msmqService) : Observable
         {
             IsBusy = false;
         }
+    }
+
+    [RelayCommand]
+    private async Task RefreshMessagesAsync(CancellationToken cancellationToken)
+    {
+        if (SelectedQueue is null)
+        {
+            StatusMessage = "Select a queue before refreshing messages.";
+            return;
+        }
+
+        await LoadMessagesAsync(SelectedQueue, cancellationToken);
+    }
+
+    private async Task LoadMessagesAndStartAutoRefreshAsync(QueueNodeViewModel queue)
+    {
+        var cts = new CancellationTokenSource();
+        _messageRefreshCts = cts;
+
+        await LoadMessagesAsync(queue, cts.Token);
+
+        if (IsAutoRefreshEnabled)
+        {
+            _ = RunMessageAutoRefreshAsync(queue, cts.Token);
+        }
+    }
+
+    private async Task RunMessageAutoRefreshAsync(QueueNodeViewModel queue, CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(Math.Max(1, AutoRefreshIntervalSeconds)));
+
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await LoadMessagesAsync(queue, cancellationToken, silent: true);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when queue selection changes or auto-refresh is disabled.
+        }
+    }
+
+    private async Task LoadMessagesAsync(QueueNodeViewModel queue, CancellationToken cancellationToken, bool silent = false)
+    {
+        try
+        {
+            await RunOnUiThreadAsync(() =>
+            {
+                IsLoadingMessages = true;
+                if (!silent)
+                {
+                    StatusMessage = $"Loading messages from {queue.Path}...";
+                }
+            });
+
+            var messages = await msmqService.GetMessagesAsync(queue.Path, maxCount: 250, cancellationToken);
+
+            await RunOnUiThreadAsync(() =>
+            {
+                var previousSelectedId = SelectedMessage?.Id;
+                Messages = new ObservableCollection<MessageInfo>(messages);
+                SelectedMessage = Messages.FirstOrDefault(message => message.Id == previousSelectedId) ?? Messages.FirstOrDefault();
+                LastMessageRefreshTime = DateTime.Now;
+                StatusMessage = $"Loaded {Messages.Count} message(s) from {queue.Name}.";
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            // Ignore expected cancellation.
+        }
+        catch (Exception ex)
+        {
+            await RunOnUiThreadAsync(() => StatusMessage = $"Failed to load messages: {ex.Message}");
+        }
+        finally
+        {
+            await RunOnUiThreadAsync(() => IsLoadingMessages = false);
+        }
+    }
+
+    private Task RunOnUiThreadAsync(Action action)
+    {
+        if (_synchronizationContext is null || SynchronizationContext.Current == _synchronizationContext)
+        {
+            action();
+            return Task.CompletedTask;
+        }
+
+        var completion = new TaskCompletionSource();
+        _synchronizationContext.Post(_ =>
+        {
+            try
+            {
+                action();
+                completion.SetResult();
+            }
+            catch (Exception ex)
+            {
+                completion.SetException(ex);
+            }
+        }, null);
+
+        return completion.Task;
     }
 
     private static ObservableCollection<QueueGroupViewModel> BuildQueueGroups(IEnumerable<QueueNodeViewModel> queues)

@@ -36,6 +36,8 @@ KarmasisQueueExplorer is an in-house Windows desktop application for browsing, v
 - Add message metadata model.
 - Add message list service methods using non-destructive peek operations.
 - Add DataGrid with Label, Id, Sent Time, Body Size, Priority, and Class columns.
+- Read message labels and body text directly from MSMQ so incoming messages are understandable without external tools.
+- Show a readable body preview in the list and full readable body in the detail panel.
 - Add detail panel with XML, JSON, Text, and Hex body viewers.
 - Load message bodies on demand when a message is selected.
 - Add basic formatting services for XML/JSON/Text/Hex.
@@ -63,6 +65,8 @@ KarmasisQueueExplorer is an in-house Windows desktop application for browsing, v
 
 - Add configurable auto-refresh intervals.
 - Refresh queue counts and selected queue messages asynchronously.
+- Automatically refresh the selected queue so newly arrived messages appear without using right-click refresh.
+- Keep manual refresh as an explicit toolbar action, but do not require it for normal monitoring.
 - Highlight changed queues/messages.
 - Add status bar with last refresh time.
 - Support cancellation when selection changes or refresh stops.

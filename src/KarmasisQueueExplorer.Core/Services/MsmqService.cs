@@ -45,8 +45,178 @@ public sealed class MsmqService : IMsmqService
     /// <inheritdoc />
     public Task<IReadOnlyList<MessageInfo>> GetMessagesAsync(string queuePath, int maxCount = 100, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Message peeking for {QueuePath} is planned for Phase 2.", queuePath);
-        return Task.FromResult<IReadOnlyList<MessageInfo>>([]);
+        return Task.Run<IReadOnlyList<MessageInfo>>(() => PeekMessages(queuePath, maxCount, cancellationToken), cancellationToken);
+    }
+
+    private IReadOnlyList<MessageInfo> PeekMessages(string queuePath, int maxCount, CancellationToken cancellationToken)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return [];
+        }
+
+        object? queue = null;
+        object? cursor = null;
+
+        try
+        {
+            var queueInfoType = Type.GetTypeFromProgID("MSMQ.MSMQQueueInfo");
+            if (queueInfoType is null)
+            {
+                throw new MsmqUnavailableException("MSMQ COM components are unavailable. Enable the 'Microsoft Message Queue (MSMQ) Server' Windows Feature and refresh.");
+            }
+
+            dynamic queueInfo = Activator.CreateInstance(queueInfoType)!;
+            queueInfo.PathName = queuePath;
+            queue = queueInfo.Open(MqPeekAccess, MqDenyNone);
+            dynamic dynamicQueue = queue;
+            cursor = dynamicQueue.CreateCursor();
+
+            var messages = new List<MessageInfo>();
+            var first = true;
+
+            while (messages.Count < maxCount)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                object? message = TryPeekMessage(dynamicQueue, cursor, first);
+                if (message is null)
+                {
+                    break;
+                }
+
+                messages.Add(ConvertToMessageInfo(message));
+                first = false;
+            }
+
+            return messages;
+        }
+        catch (MsmqUnavailableException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to peek messages from {QueuePath}.", queuePath);
+            return [];
+        }
+        finally
+        {
+            TryCloseComQueue(cursor);
+            TryCloseComQueue(queue);
+        }
+    }
+
+    private object? TryPeekMessage(dynamic queue, object? cursor, bool first)
+    {
+        try
+        {
+            return first
+                ? queue.PeekCurrent(0, false, true, cursor)
+                : queue.PeekNext(0, false, true, cursor);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static MessageInfo ConvertToMessageInfo(object message)
+    {
+        dynamic dynamicMessage = message;
+
+        var label = SafeString(() => dynamicMessage.Label);
+        var bodyText = ConvertBodyToText(SafeObject(() => dynamicMessage.Body));
+        var bodyPreview = bodyText.Length > 180 ? $"{bodyText[..180]}..." : bodyText;
+
+        return new MessageInfo(
+            SafeString(() => dynamicMessage.Id),
+            string.IsNullOrWhiteSpace(label) ? "(no label)" : label,
+            SafeDateTime(() => dynamicMessage.SentTime),
+            SafeLong(() => dynamicMessage.BodyLength),
+            SafeString(() => dynamicMessage.Priority),
+            SafeString(() => dynamicMessage.MsgClass),
+            bodyText,
+            bodyPreview);
+    }
+
+    private static string ConvertBodyToText(object? body)
+    {
+        return body switch
+        {
+            null => string.Empty,
+            string text => text,
+            byte[] bytes => TryDecodeBytes(bytes),
+            Array bytes when bytes.GetType().GetElementType() == typeof(byte) => TryDecodeBytes(bytes.Cast<byte>().ToArray()),
+            _ => body.ToString() ?? string.Empty
+        };
+    }
+
+    private static string TryDecodeBytes(byte[] bytes)
+    {
+        if (bytes.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            return System.Text.Encoding.UTF8.GetString(bytes).TrimEnd('\0');
+        }
+        catch
+        {
+            return Convert.ToHexString(bytes);
+        }
+    }
+
+    private static string SafeString(Func<object?> valueFactory)
+    {
+        try
+        {
+            return valueFactory()?.ToString() ?? string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    private static object? SafeObject(Func<object?> valueFactory)
+    {
+        try
+        {
+            return valueFactory();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static DateTime? SafeDateTime(Func<object?> valueFactory)
+    {
+        try
+        {
+            var value = valueFactory();
+            return value is null ? null : Convert.ToDateTime(value);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static long? SafeLong(Func<object?> valueFactory)
+    {
+        try
+        {
+            var value = valueFactory();
+            return value is null ? null : Convert.ToInt64(value);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private IReadOnlyList<QueueInfo> DiscoverLocalQueues(CancellationToken cancellationToken)

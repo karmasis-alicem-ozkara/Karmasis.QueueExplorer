@@ -23,12 +23,23 @@
         <Border Grid.Row="0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
             <DockPanel Margin="14,0">
                 <TextBlock Text="KarmasisQueueExplorer" VerticalAlignment="Center" FontSize="18" FontWeight="SemiBold" />
+                <CheckBox DockPanel.Dock="Right"
+                          Margin="16,0,0,0"
+                          VerticalAlignment="Center"
+                          IsChecked="{Binding IsAutoRefreshEnabled}"
+                          Content="Auto refresh" />
                 <Button DockPanel.Dock="Right"
                         Width="92"
                         Height="30"
                         Margin="8,0,0,0"
                         Command="{Binding LoadLocalQueuesCommand}"
-                        Content="Refresh" />
+                        Content="Queues" />
+                <Button DockPanel.Dock="Right"
+                        Width="98"
+                        Height="30"
+                        Margin="8,0,0,0"
+                        Command="{Binding RefreshMessagesCommand}"
+                        Content="Messages" />
             </DockPanel>
         </Border>
 
@@ -86,8 +97,38 @@
 
                 <Border Grid.Row="0" Margin="12" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="Messages" Margin="14" FontSize="14" FontWeight="SemiBold" />
-                        <Grid Margin="18">
+                        <Grid DockPanel.Dock="Top" Margin="14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Messages" FontSize="14" FontWeight="SemiBold" />
+                            <TextBlock Grid.Column="1"
+                                       Foreground="{StaticResource MutedForegroundBrush}"
+                                       Text="{Binding LastMessageRefreshTime, StringFormat=Last refresh: {0:T}, TargetNullValue=Not refreshed}" />
+                        </Grid>
+                        <DataGrid ItemsSource="{Binding Messages}"
+                                  SelectedItem="{Binding SelectedMessage, Mode=TwoWay}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  Margin="12,0,12,12"
+                                  Background="{StaticResource PanelBrush}"
+                                  Foreground="{StaticResource ForegroundBrush}"
+                                  BorderBrush="{StaticResource BorderBrush}"
+                                  GridLinesVisibility="Horizontal"
+                                  HeadersVisibility="Column"
+                                  EnableRowVirtualization="True"
+                                  EnableColumnVirtualization="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Label" Binding="{Binding Label}" Width="160" />
+                                <DataGridTextColumn Header="Body Preview" Binding="{Binding BodyPreview}" Width="*" />
+                                <DataGridTextColumn Header="Id" Binding="{Binding Id}" Width="220" />
+                                <DataGridTextColumn Header="Sent" Binding="{Binding SentTime}" Width="140" />
+                                <DataGridTextColumn Header="Size" Binding="{Binding BodySize}" Width="80" />
+                                <DataGridTextColumn Header="Priority" Binding="{Binding Priority}" Width="80" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <Grid Margin="18" Visibility="Collapsed">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
@@ -96,7 +137,7 @@
                             </Grid.RowDefinitions>
                             <TextBlock Grid.Row="0" Text="{Binding SelectedQueue.Name, TargetNullValue=No queue selected}" FontSize="20" FontWeight="SemiBold" />
                             <TextBlock Grid.Row="1" Margin="0,10,0,0" Text="{Binding SelectedQueue.Path, TargetNullValue=Select a queue from the left tree to inspect it.}" Foreground="{StaticResource MutedForegroundBrush}" />
-                            <TextBlock Grid.Row="2" Margin="0,6,0,0" Text="Message listing starts in Phase 2." Foreground="{StaticResource MutedForegroundBrush}" />
+                            <TextBlock Grid.Row="2" Margin="0,6,0,0" Text="Incoming messages appear automatically while auto-refresh is enabled." Foreground="{StaticResource MutedForegroundBrush}" />
                         </Grid>
                     </DockPanel>
                 </Border>
@@ -106,10 +147,27 @@
                 <Border Grid.Row="2" Margin="12" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6">
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Top" Text="Message Detail" Margin="14" FontSize="14" FontWeight="SemiBold" />
-                        <TextBlock Text="Select a message to view XML, JSON, Text, and Hex body formats in Phase 2."
-                                   Foreground="{StaticResource MutedForegroundBrush}"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center" />
+                        <Grid Margin="12,0,12,12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="Label: " Foreground="{StaticResource MutedForegroundBrush}" />
+                                <TextBlock Text="{Binding SelectedMessage.Label, TargetNullValue=No message selected}" FontWeight="SemiBold" />
+                            </StackPanel>
+                            <TextBox Grid.Row="1"
+                                     Text="{Binding SelectedMessage.BodyText, TargetNullValue=Select a message to read its body.}"
+                                     IsReadOnly="True"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     VerticalScrollBarVisibility="Auto"
+                                     HorizontalScrollBarVisibility="Auto"
+                                     FontFamily="Consolas"
+                                     Background="{StaticResource PanelAltBrush}"
+                                     Foreground="{StaticResource ForegroundBrush}"
+                                     BorderBrush="{StaticResource BorderBrush}" />
+                        </Grid>
                     </DockPanel>
                 </Border>
             </Grid>

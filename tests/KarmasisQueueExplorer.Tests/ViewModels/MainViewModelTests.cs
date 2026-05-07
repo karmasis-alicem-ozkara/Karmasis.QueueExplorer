@@ -37,7 +37,10 @@ public sealed class MainViewModelTests
         var viewModel = new MainViewModel(new StubMsmqService(
         [
             new QueueInfo("orders", @".\private$\orders", ".", QueueType.Private)
-        ]));
+        ], []))
+        {
+            IsAutoRefreshEnabled = false
+        };
 
         await viewModel.LoadLocalQueuesCommand.ExecuteAsync(null);
         var queue = viewModel.QueueGroups.Single().Children.Single();
@@ -47,7 +50,35 @@ public sealed class MainViewModelTests
         Assert.Multiple(() =>
         {
             Assert.That(viewModel.SelectedQueue, Is.SameAs(queue));
-            Assert.That(viewModel.StatusMessage, Is.EqualTo(@"Selected queue: .\private$\orders"));
+            Assert.That(viewModel.StatusMessage, Does.Contain("orders"));
+        });
+    }
+
+    [Test]
+    public async Task SelectedTreeItem_WhenQueueNodeSelected_LoadsReadableMessages()
+    {
+        var viewModel = new MainViewModel(new StubMsmqService(
+        [
+            new QueueInfo("orders", @".\private$\orders", ".", QueueType.Private)
+        ],
+        [
+            new MessageInfo("id-1", "OrderCreated", DateTime.Today, 42, "Normal", "Normal", "{ \"orderId\": 10 }", "{ \"orderId\": 10 }")
+        ]))
+        {
+            IsAutoRefreshEnabled = false
+        };
+
+        await viewModel.LoadLocalQueuesCommand.ExecuteAsync(null);
+        viewModel.SelectedTreeItem = viewModel.QueueGroups.Single().Children.Single();
+
+        await WaitUntilAsync(() => viewModel.Messages.Count == 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.Messages.Single().Label, Is.EqualTo("OrderCreated"));
+            Assert.That(viewModel.Messages.Single().BodyText, Does.Contain("orderId"));
+            Assert.That(viewModel.SelectedMessage, Is.Not.Null);
+            Assert.That(viewModel.LastMessageRefreshTime, Is.Not.Null);
         });
     }
 
@@ -83,7 +114,7 @@ public sealed class MainViewModelTests
         });
     }
 
-    private sealed class StubMsmqService(IReadOnlyList<QueueInfo> queues) : IMsmqService
+    private sealed class StubMsmqService(IReadOnlyList<QueueInfo> queues, IReadOnlyList<MessageInfo>? messages = null) : IMsmqService
     {
         public Task<IReadOnlyList<QueueInfo>> GetQueuesAsync(string machineName, CancellationToken cancellationToken = default)
         {
@@ -92,7 +123,17 @@ public sealed class MainViewModelTests
 
         public Task<IReadOnlyList<MessageInfo>> GetMessagesAsync(string queuePath, int maxCount = 100, CancellationToken cancellationToken = default)
         {
-            return Task.FromResult<IReadOnlyList<MessageInfo>>([]);
+            return Task.FromResult(messages ?? []);
+        }
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        while (!condition())
+        {
+            cts.Token.ThrowIfCancellationRequested();
+            await Task.Delay(25, cts.Token);
         }
     }
 

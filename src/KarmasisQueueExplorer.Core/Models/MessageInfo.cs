@@ -9,4 +9,6 @@ public sealed record MessageInfo(
     DateTime? SentTime,
     long? BodySize,
     string Priority,
-    string MessageClass);
+    string MessageClass,
+    string BodyText,
+    string BodyPreview);
