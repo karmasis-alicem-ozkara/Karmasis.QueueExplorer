@@ -2,17 +2,20 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- ── Colour palette ──────────────────────────────────────────────────── -->
-    <Color x:Key="BackgroundColor">#FF111827</Color>
-    <Color x:Key="PanelColor">#FF1F2937</Color>
-    <Color x:Key="PanelAltColor">#FF273449</Color>
-    <Color x:Key="BorderColor">#FF374151</Color>
-    <Color x:Key="ForegroundColor">#FFF9FAFB</Color>
-    <Color x:Key="MutedForegroundColor">#FF9CA3AF</Color>
-    <Color x:Key="AccentColor">#FF38BDF8</Color>
-    <Color x:Key="DangerColor">#FFEF4444</Color>
-    <Color x:Key="WarningBgColor">#FF3F2D13</Color>
-    <Color x:Key="WarningBorderColor">#FFF59E0B</Color>
-    <Color x:Key="WarningFgColor">#FFFDE68A</Color>
+    <Color x:Key="BackgroundColor">#FF323337</Color>
+    <Color x:Key="PanelColor">#FF3A3B40</Color>
+    <Color x:Key="PanelAltColor">#FF2F3034</Color>
+    <Color x:Key="BorderColor">#FF48494E</Color>
+    <Color x:Key="ForegroundColor">#FFE3E2E7</Color>
+    <Color x:Key="MutedForegroundColor">#FFA9B7C6</Color>
+    <Color x:Key="AccentColor">#FF78DC77</Color>
+    <Color x:Key="AccentMutedColor">#FF4A7A4E</Color>
+    <Color x:Key="HoverColor">#FF424348</Color>
+    <Color x:Key="SelectionColor">#FF354436</Color>
+    <Color x:Key="DangerColor">#FFFFB4AB</Color>
+    <Color x:Key="WarningBgColor">#FF3D352A</Color>
+    <Color x:Key="WarningBorderColor">#FFD7A85A</Color>
+    <Color x:Key="WarningFgColor">#FFFFDFA6</Color>
 
     <!-- ── Brushes ──────────────────────────────────────────────────────────── -->
     <SolidColorBrush x:Key="BackgroundBrush"       Color="{StaticResource BackgroundColor}" />
@@ -22,6 +25,9 @@
     <SolidColorBrush x:Key="ForegroundBrush"       Color="{StaticResource ForegroundColor}" />
     <SolidColorBrush x:Key="MutedForegroundBrush"  Color="{StaticResource MutedForegroundColor}" />
     <SolidColorBrush x:Key="AccentBrush"           Color="{StaticResource AccentColor}" />
+    <SolidColorBrush x:Key="AccentMutedBrush"      Color="{StaticResource AccentMutedColor}" />
+    <SolidColorBrush x:Key="HoverBrush"            Color="{StaticResource HoverColor}" />
+    <SolidColorBrush x:Key="SelectionBrush"        Color="{StaticResource SelectionColor}" />
     <SolidColorBrush x:Key="DangerBrush"           Color="{StaticResource DangerColor}" />
     <SolidColorBrush x:Key="WarningBgBrush"        Color="{StaticResource WarningBgColor}" />
     <SolidColorBrush x:Key="WarningBorderBrush"    Color="{StaticResource WarningBorderColor}" />
@@ -38,12 +44,31 @@
         <Setter Property="Foreground"         Value="{StaticResource ForegroundBrush}" />
         <Setter Property="BorderBrush"        Value="{StaticResource BorderBrush}" />
         <Setter Property="BorderThickness"    Value="1" />
-        <Setter Property="Height"             Value="28" />
+        <Setter Property="Height"             Value="26" />
         <Setter Property="Padding"            Value="10,0" />
         <Setter Property="Cursor"             Value="Hand" />
+        <Setter Property="FontSize"           Value="12" />
         <Setter Property="VerticalAlignment"  Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          Margin="{TemplateBinding Padding}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                <Setter Property="Background" Value="{StaticResource HoverBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
                 <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}" />
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
@@ -61,8 +86,10 @@
         <Setter Property="Foreground"                Value="{StaticResource ForegroundBrush}" />
         <Setter Property="BorderBrush"               Value="{StaticResource BorderBrush}" />
         <Setter Property="BorderThickness"           Value="1" />
+        <Setter Property="Height"                    Value="26" />
         <Setter Property="VerticalContentAlignment"  Value="Center" />
-        <Setter Property="Padding"                   Value="6,0" />
+        <Setter Property="Padding"                   Value="7,0" />
+        <Setter Property="FontSize"                  Value="12" />
         <Setter Property="CaretBrush"                Value="{StaticResource ForegroundBrush}" />
         <Setter Property="SelectionBrush"            Value="{StaticResource AccentBrush}" />
         <Style.Triggers>
@@ -81,7 +108,8 @@
         <Setter Property="Foreground"               Value="{StaticResource ForegroundBrush}" />
         <Setter Property="BorderBrush"              Value="{StaticResource BorderBrush}" />
         <Setter Property="BorderThickness"          Value="1" />
-        <Setter Property="Height"                   Value="28" />
+        <Setter Property="Height"                   Value="26" />
+        <Setter Property="FontSize"                 Value="12" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="VerticalAlignment"        Value="Center" />
     </Style>
@@ -91,6 +119,7 @@
         <Setter Property="Foreground"              Value="{StaticResource ForegroundBrush}" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="VerticalAlignment"        Value="Center" />
+        <Setter Property="FontSize"                 Value="12" />
     </Style>
 
     <!-- ── Named helper styles ─────────────────────────────────────────────── -->
@@ -102,7 +131,7 @@
     <Style x:Key="ToolbarSeparator" TargetType="Rectangle">
         <Setter Property="Width"              Value="1" />
         <Setter Property="Fill"               Value="{StaticResource BorderBrush}" />
-        <Setter Property="Margin"             Value="10,5" />
+        <Setter Property="Margin"             Value="10,4" />
         <Setter Property="VerticalAlignment"  Value="Stretch" />
     </Style>
 
@@ -115,6 +144,107 @@
         <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="Margin"            Value="0,0,5,0" />
         <Setter Property="FontSize"          Value="11" />
+        <Setter Property="FontWeight"        Value="SemiBold" />
+    </Style>
+
+    <Style TargetType="DataGrid">
+        <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="GridLinesVisibility" Value="Horizontal" />
+        <Setter Property="HorizontalGridLinesBrush" Value="{StaticResource BorderBrush}" />
+        <Setter Property="RowHeight" Value="24" />
+        <Setter Property="ColumnHeaderHeight" Value="26" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <Style TargetType="DataGridColumnHeader">
+        <Setter Property="Background" Value="{StaticResource PanelAltBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource MutedForegroundBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="0,0,1,1" />
+        <Setter Property="Padding" Value="8,0" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style TargetType="DataGridRow">
+        <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
+        <Style.Triggers>
+            <Trigger Property="AlternationIndex" Value="1">
+                <Setter Property="Background" Value="{StaticResource HoverBrush}" />
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource SelectionBrush}" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="{StaticResource SelectionBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style TargetType="DataGridCell">
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="8,0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="{StaticResource SelectionBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style TargetType="TreeView">
+        <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <Style TargetType="TreeViewItem">
+        <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
+        <Setter Property="Padding" Value="4,2" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource HoverBrush}" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="{StaticResource SelectionBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style TargetType="TabControl">
+        <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <Style TargetType="TabItem">
+        <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource MutedForegroundBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="0,0,1,1" />
+        <Setter Property="Padding" Value="12,5" />
+        <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="{StaticResource HoverBrush}" />
+                <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource AccentMutedBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style TargetType="StatusBar">
+        <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource MutedForegroundBrush}" />
+        <Setter Property="FontSize" Value="12" />
     </Style>
 
 </ResourceDictionary>

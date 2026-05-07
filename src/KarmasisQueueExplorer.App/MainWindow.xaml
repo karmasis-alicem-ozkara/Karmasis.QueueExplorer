@@ -12,10 +12,12 @@
          MinHeight="580"
          MinWidth="1080"
          Background="{StaticResource BackgroundBrush}"
-         Foreground="{StaticResource ForegroundBrush}">
+         Foreground="{StaticResource ForegroundBrush}"
+         FontFamily="Segoe UI"
+         FontSize="12">
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="48" />
+            <RowDefinition Height="40" />
             <RowDefinition Height="*" />
             <RowDefinition Height="26" />
         </Grid.RowDefinitions>
@@ -30,7 +32,7 @@
                 Background="{StaticResource PanelBrush}"
                 BorderBrush="{StaticResource BorderBrush}"
                 BorderThickness="0,0,0,1">
-            <Grid Margin="14,0">
+            <Grid Margin="12,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />   <!-- App title -->
                     <ColumnDefinition Width="*" />      <!-- Elastic spacer -->
@@ -39,10 +41,11 @@
 
                 <!-- App title -->
                 <TextBlock Grid.Column="0"
-                           Text="KarmasisQueueExplorer"
+                           Text="Karmasis Queue Explorer"
                            VerticalAlignment="Center"
                            FontSize="16"
-                           FontWeight="SemiBold" />
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource AccentBrush}" />
 
                 <!-- All toolbar controls in a single right-aligned StackPanel -->
                 <StackPanel Grid.Column="2"
@@ -94,11 +97,11 @@
 
                     <!-- ── Group: Actions ─────────────────────────────────── -->
                     <Button Command="{Binding LoadLocalQueuesCommand}"
-                            Content="Queues"
+                            Content="Connect"
                             ToolTip="Load MSMQ queues from the target machine (F5)" />
                     <Button Margin="4,0,0,0"
                             Command="{Binding RefreshMessagesCommand}"
-                            Content="Messages"
+                            Content="Refresh"
                             ToolTip="Reload messages for the selected queue" />
                     <Button Margin="4,0,0,0"
                             Command="{Binding PurgeSelectedQueueCommand}"
@@ -114,7 +117,7 @@
         ══════════════════════════════════════════════════════════════════════ -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="300" MinWidth="180" />
+                <ColumnDefinition Width="250" MinWidth="180" />
                 <ColumnDefinition Width="5" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
@@ -152,7 +155,7 @@
                             Background="{StaticResource WarningBgBrush}"
                             BorderBrush="{StaticResource WarningBorderBrush}"
                             BorderThickness="1"
-                            CornerRadius="4"
+                            CornerRadius="0"
                             Visibility="{Binding HasWarning, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <TextBlock Text="{Binding WarningMessage}"
                                    TextWrapping="Wrap"
@@ -202,7 +205,7 @@
                         Background="{StaticResource PanelBrush}"
                         BorderBrush="{StaticResource BorderBrush}"
                         BorderThickness="1"
-                        CornerRadius="4">
+                        CornerRadius="0">
                     <DockPanel>
 
                         <!-- Message list header: title | filter textbox | last-refresh time -->
@@ -268,7 +271,7 @@
                         Background="{StaticResource PanelBrush}"
                         BorderBrush="{StaticResource BorderBrush}"
                         BorderThickness="1"
-                        CornerRadius="4">
+                        CornerRadius="0">
                     <DockPanel>
 
                         <!-- ── Detail panel header ──────────────────────────
