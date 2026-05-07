@@ -623,9 +623,75 @@ public sealed class MainViewModelTests
         Assert.That(viewModel.RemoveSelectedProfileCommand.CanExecute(null), Is.True);
     }
 
+    // ── Quick-connect tests ──────────────────────────────────────────────────
+
     [Test]
-    public async Task LoadLocalQueuesCommand_WhenServiceFails_UpdatesStatusAndClearsBusyFlag()
+    public async Task SelectingProfile_AfterInit_AutoConnectsToSelectedMachine()
     {
+        var service = new StubMsmqService(
+        [
+            new QueueInfo("orders", @"REMOTE-SRV\private$\orders", "REMOTE-SRV", QueueType.Private)
+        ]);
+        ConnectionProfile[] stored =
+        [
+            new ConnectionProfile("Local Machine", "."),
+            new ConnectionProfile("Remote Server", "REMOTE-SRV")
+        ];
+        var store = new StubConnectionProfileStore(stored);
+        var viewModel = new MainViewModel(service, connectionProfileStore: store);
+
+        await viewModel.InitializeAsync();
+
+        // Startup: local profile pre-selected, no GetQueuesAsync call yet
+        Assert.That(service.LastMachineName, Is.Null, "InitializeAsync must NOT auto-connect");
+
+        // Act: user picks a different profile from the dropdown
+        viewModel.SelectedSavedProfile = viewModel.SavedProfiles.Single(p => p.MachineName == "REMOTE-SRV");
+
+        // The auto-connect triggers LoadLocalQueuesCommand asynchronously — wait for it
+        await WaitUntilAsync(() => service.LastMachineName is not null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.TargetMachineName, Is.EqualTo("REMOTE-SRV"));
+            Assert.That(service.LastMachineName, Is.EqualTo("REMOTE-SRV"));
+            Assert.That(viewModel.StatusMessage, Does.Contain("REMOTE-SRV"));
+        });
+    }
+
+    [Test]
+    public async Task InitializeAsync_DoesNotAutoConnect_DuringStartupProfilePreSelection()
+    {
+        var service = new StubMsmqService(
+        [
+            new QueueInfo("orders", @".\private$\orders", ".", QueueType.Private)
+        ]);
+        ConnectionProfile[] stored =
+        [
+            new ConnectionProfile("Local Machine", "."),
+            new ConnectionProfile("Remote Server", "REMOTE-SRV")
+        ];
+        var store = new StubConnectionProfileStore(stored);
+        var viewModel = new MainViewModel(service, connectionProfileStore: store);
+
+        await viewModel.InitializeAsync();
+
+        // Profile was pre-selected during init, but GetQueuesAsync must NOT have been called
+        Assert.That(service.LastMachineName, Is.Null);
+        Assert.That(viewModel.StatusMessage, Is.EqualTo("Ready"));
+    }
+
+    [Test]
+    public void IsNotBusy_IsTrueByDefault_AndInvertsIsBusy()
+    {
+        var viewModel = new MainViewModel(new StubMsmqService([]));
+
+        Assert.That(viewModel.IsNotBusy, Is.True);
+        Assert.That(viewModel.IsBusy, Is.False);
+    }
+
+    [Test]
+    public async Task LoadLocalQueuesCommand_WhenServiceFails_UpdatesStatusAndClearsBusyFlag()    {
         var viewModel = new MainViewModel(new ThrowingMsmqService());
 
         await viewModel.LoadLocalQueuesCommand.ExecuteAsync(null);

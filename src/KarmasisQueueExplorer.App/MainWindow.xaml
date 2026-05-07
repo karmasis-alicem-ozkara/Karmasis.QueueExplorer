@@ -43,7 +43,8 @@
                               ItemsSource="{Binding SavedProfiles}"
                               SelectedItem="{Binding SelectedSavedProfile, Mode=TwoWay}"
                               DisplayMemberPath="DisplayName"
-                              ToolTip="Select a saved connection profile"
+                              IsEnabled="{Binding IsNotBusy}"
+                              ToolTip="Select a saved profile to connect immediately. Save/Remove manage the list."
                               Background="{StaticResource PanelAltBrush}"
                               Foreground="{StaticResource ForegroundBrush}"
                               BorderBrush="{StaticResource BorderBrush}" />

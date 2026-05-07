@@ -20,6 +20,12 @@ public sealed partial class MainViewModel(
     private readonly SynchronizationContext? _synchronizationContext = SynchronizationContext.Current;
     private CancellationTokenSource? _messageRefreshCts;
 
+    /// <summary>
+    /// Prevents <see cref="OnSelectedSavedProfileChanged"/> from triggering a queue
+    /// load while <see cref="InitializeAsync"/> is pre-selecting the startup profile.
+    /// </summary>
+    private bool _suppressAutoConnect;
+
     [ObservableProperty]
     private ObservableCollection<QueueNodeViewModel> _queues = [];
 
@@ -89,6 +95,9 @@ public sealed partial class MainViewModel(
     [ObservableProperty]
     private bool _isBusy;
 
+    /// <summary>Inverse of <see cref="IsBusy"/>; drives UI element <c>IsEnabled</c> bindings.</summary>
+    public bool IsNotBusy => !IsBusy;
+
     [ObservableProperty]
     private bool _isLoadingMessages;
 
@@ -110,6 +119,11 @@ public sealed partial class MainViewModel(
     partial void OnWarningMessageChanged(string value)
     {
         OnPropertyChanged(nameof(HasWarning));
+    }
+
+    partial void OnIsBusyChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsNotBusy));
     }
 
     partial void OnSelectedTreeItemChanged(object? value)
@@ -187,6 +201,13 @@ public sealed partial class MainViewModel(
         if (value is not null)
         {
             TargetMachineName = value.MachineName;
+
+            // Auto-connect: selecting a profile immediately loads queues for that machine.
+            // Suppressed during InitializeAsync to avoid an unwanted connect on startup.
+            if (!_suppressAutoConnect)
+            {
+                _ = LoadLocalQueuesCommand.ExecuteAsync(null);
+            }
         }
 
         RemoveSelectedProfileCommand.NotifyCanExecuteChanged();
@@ -195,15 +216,25 @@ public sealed partial class MainViewModel(
     /// <summary>
     /// Loads saved connection profiles from the store on application startup.
     /// Should be called once by the host after the main window is created.
+    /// Profile pre-selection does NOT trigger an automatic queue load — the user
+    /// initiates the first connect explicitly or via the profile picker thereafter.
     /// </summary>
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         var profiles = await _connectionProfileStore.LoadProfilesAsync(cancellationToken);
         SavedProfiles = new ObservableCollection<ConnectionProfile>(profiles);
 
-        // Pre-select the local machine profile if present, otherwise keep TargetMachineName as default.
-        SelectedSavedProfile = SavedProfiles.FirstOrDefault(p => p.MachineName == TargetMachineName)
-            ?? SavedProfiles.FirstOrDefault();
+        // Suppress auto-connect while we restore the previously selected profile.
+        _suppressAutoConnect = true;
+        try
+        {
+            SelectedSavedProfile = SavedProfiles.FirstOrDefault(p => p.MachineName == TargetMachineName)
+                ?? SavedProfiles.FirstOrDefault();
+        }
+        finally
+        {
+            _suppressAutoConnect = false;
+        }
     }
 
     [RelayCommand]
