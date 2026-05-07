@@ -57,6 +57,12 @@
                         Margin="8,0,0,0"
                         Command="{Binding RefreshMessagesCommand}"
                         Content="Messages" />
+                <Button DockPanel.Dock="Right"
+                        Width="86"
+                        Height="30"
+                        Margin="8,0,0,0"
+                        Command="{Binding PurgeSelectedQueueCommand}"
+                        Content="Purge" />
             </DockPanel>
         </Border>
 

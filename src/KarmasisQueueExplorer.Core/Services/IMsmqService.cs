@@ -33,4 +33,9 @@ public interface IMsmqService
     /// Copies message label and readable body to another queue without removing the source message.
     /// </summary>
     Task CopyMessageAsync(string targetQueuePath, MessageInfo message, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Purges all messages from a queue. This is destructive and must be called only after confirmation.
+    /// </summary>
+    Task PurgeQueueAsync(string queuePath, CancellationToken cancellationToken = default);
 }

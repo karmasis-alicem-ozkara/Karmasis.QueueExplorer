@@ -351,6 +351,56 @@ public sealed class MainViewModelTests
     }
 
     [Test]
+    public async Task PurgeSelectedQueueCommand_WhenNotConfirmed_DoesNotPurge()
+    {
+        var service = new StubMsmqService(
+        [
+            new QueueInfo("orders", @".\private$\orders", ".", QueueType.Private)
+        ],
+        [
+            new MessageInfo("id-1", "OrderCreated", DateTime.Today, 42, "Normal", "Normal", "body", "body")
+        ]);
+        var viewModel = new MainViewModel(service, dialogService: new StubDialogService(false))
+        {
+            IsAutoRefreshEnabled = false
+        };
+
+        await viewModel.LoadLocalQueuesCommand.ExecuteAsync(null);
+        viewModel.SelectedTreeItem = viewModel.QueueGroups.Single().Children.Single();
+        await viewModel.PurgeSelectedQueueCommand.ExecuteAsync(null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.LastPurgedQueuePath, Is.Null);
+            Assert.That(viewModel.StatusMessage, Is.EqualTo("Purge cancelled."));
+        });
+    }
+
+    [Test]
+    public async Task PurgeSelectedQueueCommand_WhenConfirmed_PurgesQueueAndRefreshesMessages()
+    {
+        var service = new StubMsmqService(
+        [
+            new QueueInfo("orders", @".\private$\orders", ".", QueueType.Private)
+        ], []);
+        var viewModel = new MainViewModel(service, dialogService: new StubDialogService(true))
+        {
+            IsAutoRefreshEnabled = false
+        };
+
+        await viewModel.LoadLocalQueuesCommand.ExecuteAsync(null);
+        viewModel.SelectedTreeItem = viewModel.QueueGroups.Single().Children.Single();
+        await viewModel.PurgeSelectedQueueCommand.ExecuteAsync(null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.LastPurgedQueuePath, Is.EqualTo(@".\private$\orders"));
+            Assert.That(viewModel.Messages, Is.Empty);
+            Assert.That(viewModel.IsBusy, Is.False);
+        });
+    }
+
+    [Test]
     public async Task LoadLocalQueuesCommand_WhenServiceFails_UpdatesStatusAndClearsBusyFlag()
     {
         var viewModel = new MainViewModel(new ThrowingMsmqService());
@@ -392,6 +442,7 @@ public sealed class MainViewModelTests
         public string? LastDeletedMessageId { get; private set; }
         public string? LastCopiedTargetQueuePath { get; private set; }
         public MessageInfo? LastCopiedMessage { get; private set; }
+        public string? LastPurgedQueuePath { get; private set; }
 
         public Task<IReadOnlyList<QueueInfo>> GetQueuesAsync(string machineName, CancellationToken cancellationToken = default)
         {
@@ -423,6 +474,12 @@ public sealed class MainViewModelTests
         {
             LastCopiedTargetQueuePath = targetQueuePath;
             LastCopiedMessage = message;
+            return Task.CompletedTask;
+        }
+
+        public Task PurgeQueueAsync(string queuePath, CancellationToken cancellationToken = default)
+        {
+            LastPurgedQueuePath = queuePath;
             return Task.CompletedTask;
         }
     }
@@ -463,6 +520,11 @@ public sealed class MainViewModelTests
         {
             return Task.CompletedTask;
         }
+
+        public Task PurgeQueueAsync(string queuePath, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class UnavailableMsmqService : IMsmqService
@@ -488,6 +550,11 @@ public sealed class MainViewModelTests
         }
 
         public Task CopyMessageAsync(string targetQueuePath, MessageInfo message, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task PurgeQueueAsync(string queuePath, CancellationToken cancellationToken = default)
         {
             return Task.CompletedTask;
         }

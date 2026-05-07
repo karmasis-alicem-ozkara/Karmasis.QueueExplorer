@@ -66,6 +66,51 @@ public sealed class MsmqService : IMsmqService
         return SendMessageAsync(targetQueuePath, message.Label, message.BodyText, cancellationToken);
     }
 
+    /// <inheritdoc />
+    public Task PurgeQueueAsync(string queuePath, CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() => PurgeQueue(queuePath, cancellationToken), cancellationToken);
+    }
+
+    private void PurgeQueue(string queuePath, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!OperatingSystem.IsWindows())
+        {
+            throw new MsmqUnavailableException("MSMQ purge is only supported on Windows.");
+        }
+
+        object? queue = null;
+
+        try
+        {
+            var queueInfoType = Type.GetTypeFromProgID("MSMQ.MSMQQueueInfo");
+            if (queueInfoType is null)
+            {
+                throw new MsmqUnavailableException("MSMQ COM components are unavailable. Enable the 'Microsoft Message Queue (MSMQ) Server' Windows Feature and refresh.");
+            }
+
+            dynamic queueInfo = Activator.CreateInstance(queueInfoType)!;
+            queueInfo.PathName = queuePath;
+            queue = queueInfo.Open(1, MqDenyNone);
+            ((dynamic)queue).Purge();
+        }
+        catch (MsmqUnavailableException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to purge queue {QueuePath}.", queuePath);
+            throw new InvalidOperationException($"Failed to purge queue {queuePath}: {ex.Message}", ex);
+        }
+        finally
+        {
+            TryCloseComQueue(queue);
+        }
+    }
+
     private void DeleteMessageById(string queuePath, string messageId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

@@ -393,6 +393,50 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
         }
     }
 
+    [RelayCommand]
+    private async Task PurgeSelectedQueueAsync(CancellationToken cancellationToken)
+    {
+        if (SelectedQueue is null)
+        {
+            StatusMessage = "Select a queue before purging.";
+            return;
+        }
+
+        var confirmed = await _dialogService.ConfirmAsync(
+            "Purge selected queue",
+            $"Delete ALL messages from {SelectedQueue.Path}? This operation cannot be undone.",
+            cancellationToken);
+
+        if (!confirmed)
+        {
+            StatusMessage = "Purge cancelled.";
+            return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            await msmqService.PurgeQueueAsync(SelectedQueue.Path, cancellationToken);
+            Messages = [];
+            FilteredMessages = [];
+            SelectedMessage = null;
+            StatusMessage = $"Purged queue {SelectedQueue.Name}.";
+            await LoadMessagesAsync(SelectedQueue, cancellationToken, silent: true);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Purge cancelled.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to purge queue: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
     private async Task LoadMessagesAndStartAutoRefreshAsync(QueueNodeViewModel queue)
     {
         var cts = new CancellationTokenSource();
