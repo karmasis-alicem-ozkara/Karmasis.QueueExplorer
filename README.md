@@ -17,3 +17,11 @@ Phase 1 starts with local MSMQ queue discovery and a dark-themed explorer shell.
 ```powershell
 dotnet build
 ```
+
+## Logs
+
+Runtime logs are written to:
+
+```text
+%LOCALAPPDATA%\KarmasisQueueExplorer\Logs
+```
