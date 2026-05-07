@@ -22,6 +22,12 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
     private ObservableCollection<MessageInfo> _messages = [];
 
     [ObservableProperty]
+    private ObservableCollection<MessageInfo> _filteredMessages = [];
+
+    [ObservableProperty]
+    private string _messageFilterText = string.Empty;
+
+    [ObservableProperty]
     private MessageInfo? _selectedMessage;
 
     [ObservableProperty]
@@ -96,6 +102,11 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
         SelectedBodyJson = _messageBodyFormatter.FormatJson(bodyText);
         SelectedBodyXml = _messageBodyFormatter.FormatXml(bodyText);
         SelectedBodyHex = _messageBodyFormatter.FormatHex(bodyText);
+    }
+
+    partial void OnMessageFilterTextChanged(string value)
+    {
+        ApplyMessageFilter();
     }
 
     partial void OnIsAutoRefreshEnabledChanged(bool value)
@@ -210,7 +221,8 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
             {
                 var previousSelectedId = SelectedMessage?.Id;
                 Messages = new ObservableCollection<MessageInfo>(messages);
-                SelectedMessage = Messages.FirstOrDefault(message => message.Id == previousSelectedId) ?? Messages.FirstOrDefault();
+                ApplyMessageFilter();
+                SelectedMessage = FilteredMessages.FirstOrDefault(message => message.Id == previousSelectedId) ?? FilteredMessages.FirstOrDefault();
                 LastMessageRefreshTime = DateTime.Now;
                 StatusMessage = $"Loaded {Messages.Count} message(s) from {queue.Name}.";
             });
@@ -252,6 +264,25 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
         }, null);
 
         return completion.Task;
+    }
+
+    private void ApplyMessageFilter()
+    {
+        var filter = MessageFilterText.Trim();
+        var filtered = string.IsNullOrWhiteSpace(filter)
+            ? Messages
+            : Messages.Where(message =>
+                message.Label.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+                message.BodyPreview.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+                message.BodyText.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
+                message.Id.Contains(filter, StringComparison.OrdinalIgnoreCase));
+
+        FilteredMessages = new ObservableCollection<MessageInfo>(filtered);
+
+        if (SelectedMessage is not null && !FilteredMessages.Any(message => message.Id == SelectedMessage.Id))
+        {
+            SelectedMessage = FilteredMessages.FirstOrDefault();
+        }
     }
 
     private static ObservableCollection<QueueGroupViewModel> BuildQueueGroups(IEnumerable<QueueNodeViewModel> queues)

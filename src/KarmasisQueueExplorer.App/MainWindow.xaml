@@ -100,14 +100,22 @@
                         <Grid DockPanel.Dock="Top" Margin="14">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="260" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Messages" FontSize="14" FontWeight="SemiBold" />
-                            <TextBlock Grid.Column="1"
+                            <TextBox Grid.Column="1"
+                                     Margin="12,0"
+                                     Height="26"
+                                     Text="{Binding MessageFilterText, UpdateSourceTrigger=PropertyChanged}"
+                                     Background="{StaticResource PanelAltBrush}"
+                                     Foreground="{StaticResource ForegroundBrush}"
+                                     BorderBrush="{StaticResource BorderBrush}" />
+                            <TextBlock Grid.Column="2"
                                        Foreground="{StaticResource MutedForegroundBrush}"
                                        Text="{Binding LastMessageRefreshTime, StringFormat=Last refresh: {0:T}, TargetNullValue=Not refreshed}" />
                         </Grid>
-                        <DataGrid ItemsSource="{Binding Messages}"
+                        <DataGrid ItemsSource="{Binding FilteredMessages}"
                                   SelectedItem="{Binding SelectedMessage, Mode=TwoWay}"
                                   AutoGenerateColumns="False"
                                   IsReadOnly="True"

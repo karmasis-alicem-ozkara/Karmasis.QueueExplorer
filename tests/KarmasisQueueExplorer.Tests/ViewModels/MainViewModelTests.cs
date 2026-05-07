@@ -85,6 +85,35 @@ public sealed class MainViewModelTests
     }
 
     [Test]
+    public async Task MessageFilterText_FiltersByLabelAndBody()
+    {
+        var viewModel = new MainViewModel(new StubMsmqService(
+        [
+            new QueueInfo("orders", @".\private$\orders", ".", QueueType.Private)
+        ],
+        [
+            new MessageInfo("id-1", "OrderCreated", DateTime.Today, 42, "Normal", "Normal", "{ \"orderId\": 10 }", "{ \"orderId\": 10 }"),
+            new MessageInfo("id-2", "PaymentReceived", DateTime.Today, 55, "Normal", "Normal", "{ \"paymentId\": 22 }", "{ \"paymentId\": 22 }")
+        ]))
+        {
+            IsAutoRefreshEnabled = false
+        };
+
+        await viewModel.LoadLocalQueuesCommand.ExecuteAsync(null);
+        viewModel.SelectedTreeItem = viewModel.QueueGroups.Single().Children.Single();
+        await WaitUntilAsync(() => viewModel.Messages.Count == 2);
+
+        viewModel.MessageFilterText = "paymentId";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.FilteredMessages, Has.Count.EqualTo(1));
+            Assert.That(viewModel.FilteredMessages.Single().Label, Is.EqualTo("PaymentReceived"));
+            Assert.That(viewModel.SelectedMessage?.Label, Is.EqualTo("PaymentReceived"));
+        });
+    }
+
+    [Test]
     public async Task LoadLocalQueuesCommand_WhenServiceFails_UpdatesStatusAndClearsBusyFlag()
     {
         var viewModel = new MainViewModel(new ThrowingMsmqService());
