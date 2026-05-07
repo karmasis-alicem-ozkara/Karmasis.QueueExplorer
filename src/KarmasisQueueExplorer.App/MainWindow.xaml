@@ -62,6 +62,9 @@
                               ToolTip="Select a saved profile — queues load automatically" />
                     <TextBox Width="90"
                              Margin="4,0,0,0"
+                             Background="{StaticResource LightFieldBrush}"
+                             Foreground="{StaticResource LightFieldForegroundBrush}"
+                             CaretBrush="{StaticResource LightFieldForegroundBrush}"
                              Text="{Binding NewProfileDisplayName, UpdateSourceTrigger=PropertyChanged}"
                              ToolTip="Optional display name when saving (leave blank to use machine name)" />
                     <Button Margin="4,0,0,0"

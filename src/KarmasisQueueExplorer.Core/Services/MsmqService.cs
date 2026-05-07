@@ -13,21 +13,28 @@ public sealed class MsmqService : IMsmqService
 
     private readonly ILogger<MsmqService> _logger;
     private readonly Func<string, string> _lqsPathResolver;
+    private readonly bool _useMsmqApplicationDiscovery;
 
     public MsmqService(ILogger<MsmqService> logger)
-        : this(logger, ResolveDefaultLqsPath)
+        : this(logger, ResolveDefaultLqsPath, useMsmqApplicationDiscovery: true)
     {
     }
 
     public MsmqService(ILogger<MsmqService> logger, string lqsPath)
-        : this(logger, _ => lqsPath)
+        : this(logger, _ => lqsPath, useMsmqApplicationDiscovery: false)
     {
     }
 
     public MsmqService(ILogger<MsmqService> logger, Func<string, string> lqsPathResolver)
+        : this(logger, lqsPathResolver, useMsmqApplicationDiscovery: false)
+    {
+    }
+
+    private MsmqService(ILogger<MsmqService> logger, Func<string, string> lqsPathResolver, bool useMsmqApplicationDiscovery)
     {
         _logger = logger;
         _lqsPathResolver = lqsPathResolver;
+        _useMsmqApplicationDiscovery = useMsmqApplicationDiscovery;
     }
 
     /// <inheritdoc />
@@ -377,17 +384,27 @@ public sealed class MsmqService : IMsmqService
     private IReadOnlyList<QueueInfo> DiscoverQueues(string machineName, CancellationToken cancellationToken)
     {
         // .NET 8 does not include the legacy System.Messaging assembly. The first iteration
-        // keeps MSMQ access behind IMsmqService and discovers local private queues from the
-        // MSMQ LQS metadata directory when available. A richer MSMQ adapter will be added next.
+        // keeps MSMQ access behind IMsmqService. Queue discovery combines MSMQ COM's registered
+        // private queues with LQS metadata so remote/IP targets do not show only one queue.
         var queues = new List<QueueInfo>();
+        if (_useMsmqApplicationDiscovery)
+        {
+            queues.AddRange(TryDiscoverPrivateQueuesFromMsmqApplication(machineName, cancellationToken));
+        }
+
         var lqsPath = _lqsPathResolver(machineName);
 
         if (!Directory.Exists(lqsPath))
         {
-            _logger.LogWarning("MSMQ LQS directory was not found at {LqsPath} for machine {MachineName}. MSMQ may be disabled or remote admin access may be unavailable.", lqsPath, machineName);
-            throw new MsmqUnavailableException(IsLocalMachine(machineName)
-                ? "MSMQ appears to be disabled. Enable the 'Microsoft Message Queue (MSMQ) Server' Windows Feature and refresh."
-                : $"Could not access MSMQ metadata on '{machineName}'. Ensure MSMQ is enabled, remote admin share access is allowed, and you have permission to \\\\{machineName}\\admin$. ");
+            if (queues.Count == 0)
+            {
+                _logger.LogWarning("MSMQ LQS directory was not found at {LqsPath} for machine {MachineName}. MSMQ may be disabled or remote admin access may be unavailable.", lqsPath, machineName);
+                throw new MsmqUnavailableException(IsLocalMachine(machineName)
+                    ? "MSMQ appears to be disabled. Enable the 'Microsoft Message Queue (MSMQ) Server' Windows Feature and refresh."
+                    : $"Could not access MSMQ queues on '{machineName}'. Ensure MSMQ is enabled, remote queue management/admin share access is allowed, and you have permission to \\\\{machineName}\\admin$. ");
+            }
+
+            return SortAndDeduplicateQueues(queues);
         }
 
         foreach (var filePath in Directory.EnumerateFiles(lqsPath))
@@ -408,7 +425,63 @@ public sealed class MsmqService : IMsmqService
                 TryGetLocalQueueCount(metadata.Path)));
         }
 
+        return SortAndDeduplicateQueues(queues);
+    }
+
+    private IReadOnlyList<QueueInfo> TryDiscoverPrivateQueuesFromMsmqApplication(string machineName, CancellationToken cancellationToken)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return [];
+        }
+
+        try
+        {
+            var applicationType = Type.GetTypeFromProgID("MSMQ.MSMQApplication");
+            if (applicationType is null)
+            {
+                _logger.LogDebug("MSMQApplication COM component is unavailable; falling back to LQS metadata discovery.");
+                return [];
+            }
+
+            dynamic application = Activator.CreateInstance(applicationType)!;
+            application.Machine = IsLocalMachine(machineName) ? Environment.MachineName : machineName;
+
+            var queues = new List<QueueInfo>();
+            foreach (var queuePathValue in (Array)application.PrivateQueues)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var rawPath = queuePathValue?.ToString();
+                if (string.IsNullOrWhiteSpace(rawPath))
+                {
+                    continue;
+                }
+
+                var name = NormalizeQueueName(rawPath);
+                var path = NormalizeQueuePath(rawPath, machineName, name);
+                queues.Add(new QueueInfo(
+                    name,
+                    path,
+                    IsLocalMachine(machineName) ? Environment.MachineName : machineName,
+                    InferQueueType(path),
+                    TryGetLocalQueueCount(path)));
+            }
+
+            return queues;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Could not discover private queues through MSMQApplication for {MachineName}; falling back to LQS metadata discovery.", machineName);
+            return [];
+        }
+    }
+
+    private static IReadOnlyList<QueueInfo> SortAndDeduplicateQueues(IEnumerable<QueueInfo> queues)
+    {
         return queues
+            .GroupBy(queue => NormalizeQueueIdentity(queue.Path), StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
             .OrderBy(queue => queue.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
@@ -438,7 +511,8 @@ public sealed class MsmqService : IMsmqService
                 values[key] = value;
             }
 
-            var rawName = FirstNonEmpty(values, "QueueName", "QueueLabel", "PathName");
+            var rawName = FirstNonEmpty(values, "QueueName", "QueueLabel", "PathName", "BaseQueueName", "QueuePathName", "FormatName")
+                ?? Path.GetFileNameWithoutExtension(filePath);
             if (string.IsNullOrWhiteSpace(rawName))
             {
                 _logger.LogDebug("Skipping LQS file {FilePath} because no QueueName, QueueLabel, or PathName was found.", filePath);
@@ -556,6 +630,11 @@ public sealed class MsmqService : IMsmqService
         }
 
         return BuildPrivateQueuePath(machineName, queueName);
+    }
+
+    private static string NormalizeQueueIdentity(string queuePath)
+    {
+        return queuePath.Trim().Replace('/', '\\');
     }
 
     private static string BuildPrivateQueuePath(string machineName, string queueName)
