@@ -28,4 +28,9 @@ public interface IMsmqService
     /// Deletes a message by receiving it explicitly by id. This is destructive and must be called only after confirmation.
     /// </summary>
     Task DeleteMessageAsync(string queuePath, string messageId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Copies message label and readable body to another queue without removing the source message.
+    /// </summary>
+    Task CopyMessageAsync(string targetQueuePath, MessageInfo message, CancellationToken cancellationToken = default);
 }

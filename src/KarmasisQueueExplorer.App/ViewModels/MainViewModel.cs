@@ -39,6 +39,9 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
     private string _newMessageBody = "{ \"source\": \"KarmasisQueueExplorer\", \"type\": \"test\" }";
 
     [ObservableProperty]
+    private string _targetQueuePath = string.Empty;
+
+    [ObservableProperty]
     private MessageInfo? _selectedMessage;
 
     [ObservableProperty]
@@ -299,6 +302,90 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
         catch (Exception ex)
         {
             StatusMessage = $"Failed to delete message: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task CopySelectedMessageAsync(CancellationToken cancellationToken)
+    {
+        if (SelectedMessage is null)
+        {
+            StatusMessage = "Select a message before copying.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(TargetQueuePath))
+        {
+            StatusMessage = "Enter target queue path before copying.";
+            return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            await msmqService.CopyMessageAsync(TargetQueuePath.Trim(), SelectedMessage, cancellationToken);
+            StatusMessage = $"Copied message {SelectedMessage.Label} to {TargetQueuePath.Trim()}.";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Copy cancelled.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to copy message: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task MoveSelectedMessageAsync(CancellationToken cancellationToken)
+    {
+        if (SelectedQueue is null || SelectedMessage is null)
+        {
+            StatusMessage = "Select a queue message before moving.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(TargetQueuePath))
+        {
+            StatusMessage = "Enter target queue path before moving.";
+            return;
+        }
+
+        var targetQueuePath = TargetQueuePath.Trim();
+        var confirmed = await _dialogService.ConfirmAsync(
+            "Move selected message",
+            $"Move message '{SelectedMessage.Label}' from {SelectedQueue.Path} to {targetQueuePath}? Source message will be deleted after copy.",
+            cancellationToken);
+
+        if (!confirmed)
+        {
+            StatusMessage = "Move cancelled.";
+            return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            await msmqService.CopyMessageAsync(targetQueuePath, SelectedMessage, cancellationToken);
+            await msmqService.DeleteMessageAsync(SelectedQueue.Path, SelectedMessage.Id, cancellationToken);
+            StatusMessage = $"Moved message {SelectedMessage.Label} to {targetQueuePath}.";
+            await LoadMessagesAsync(SelectedQueue, cancellationToken, silent: true);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Move cancelled.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to move message: {ex.Message}";
         }
         finally
         {

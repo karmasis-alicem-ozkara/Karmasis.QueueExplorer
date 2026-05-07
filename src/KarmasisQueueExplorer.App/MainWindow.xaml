@@ -202,6 +202,25 @@
                                     Margin="200,0,0,0"
                                     Command="{Binding DeleteSelectedMessageCommand}"
                                     Content="Delete" />
+                            <TextBox Grid.Column="1"
+                                     Height="26"
+                                     Margin="8,30,0,0"
+                                     Text="{Binding TargetQueuePath, UpdateSourceTrigger=PropertyChanged}"
+                                     Background="{StaticResource PanelAltBrush}"
+                                     Foreground="{StaticResource ForegroundBrush}"
+                                     BorderBrush="{StaticResource BorderBrush}" />
+                            <Button Grid.Column="2"
+                                    Width="92"
+                                    Height="26"
+                                    Margin="0,30,0,0"
+                                    Command="{Binding CopySelectedMessageCommand}"
+                                    Content="Copy" />
+                            <Button Grid.Column="2"
+                                    Width="92"
+                                    Height="26"
+                                    Margin="100,30,0,0"
+                                    Command="{Binding MoveSelectedMessageCommand}"
+                                    Content="Move" />
                         </Grid>
                         <Grid Margin="12,0,12,12">
                             <Grid.RowDefinitions>

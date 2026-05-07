@@ -59,6 +59,13 @@ public sealed class MsmqService : IMsmqService
         return Task.Run(() => DeleteMessageById(queuePath, messageId, cancellationToken), cancellationToken);
     }
 
+    /// <inheritdoc />
+    public Task CopyMessageAsync(string targetQueuePath, MessageInfo message, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+        return SendMessageAsync(targetQueuePath, message.Label, message.BodyText, cancellationToken);
+    }
+
     private void DeleteMessageById(string queuePath, string messageId, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

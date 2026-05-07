@@ -261,6 +261,96 @@ public sealed class MainViewModelTests
     }
 
     [Test]
+    public async Task CopySelectedMessageCommand_WhenTargetQueueProvided_CopiesWithoutDeleting()
+    {
+        var service = new StubMsmqService(
+        [
+            new QueueInfo("orders", @".\private$\orders", ".", QueueType.Private)
+        ],
+        [
+            new MessageInfo("id-1", "OrderCreated", DateTime.Today, 42, "Normal", "Normal", "body", "body")
+        ]);
+        var viewModel = new MainViewModel(service)
+        {
+            IsAutoRefreshEnabled = false,
+            TargetQueuePath = @".\private$\archive"
+        };
+
+        await viewModel.LoadLocalQueuesCommand.ExecuteAsync(null);
+        viewModel.SelectedTreeItem = viewModel.QueueGroups.Single().Children.Single();
+        await WaitUntilAsync(() => viewModel.SelectedMessage is not null);
+        await viewModel.CopySelectedMessageCommand.ExecuteAsync(null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.LastCopiedTargetQueuePath, Is.EqualTo(@".\private$\archive"));
+            Assert.That(service.LastCopiedMessage?.Id, Is.EqualTo("id-1"));
+            Assert.That(service.LastDeletedMessageId, Is.Null);
+            Assert.That(viewModel.StatusMessage, Does.StartWith("Copied message"));
+        });
+    }
+
+    [Test]
+    public async Task MoveSelectedMessageCommand_WhenNotConfirmed_DoesNotCopyOrDelete()
+    {
+        var service = new StubMsmqService(
+        [
+            new QueueInfo("orders", @".\private$\orders", ".", QueueType.Private)
+        ],
+        [
+            new MessageInfo("id-1", "OrderCreated", DateTime.Today, 42, "Normal", "Normal", "body", "body")
+        ]);
+        var viewModel = new MainViewModel(service, dialogService: new StubDialogService(false))
+        {
+            IsAutoRefreshEnabled = false,
+            TargetQueuePath = @".\private$\archive"
+        };
+
+        await viewModel.LoadLocalQueuesCommand.ExecuteAsync(null);
+        viewModel.SelectedTreeItem = viewModel.QueueGroups.Single().Children.Single();
+        await WaitUntilAsync(() => viewModel.SelectedMessage is not null);
+        await viewModel.MoveSelectedMessageCommand.ExecuteAsync(null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.LastCopiedMessage, Is.Null);
+            Assert.That(service.LastDeletedMessageId, Is.Null);
+            Assert.That(viewModel.StatusMessage, Is.EqualTo("Move cancelled."));
+        });
+    }
+
+    [Test]
+    public async Task MoveSelectedMessageCommand_WhenConfirmed_CopiesThenDeletesSource()
+    {
+        var service = new StubMsmqService(
+        [
+            new QueueInfo("orders", @".\private$\orders", ".", QueueType.Private)
+        ],
+        [
+            new MessageInfo("id-1", "OrderCreated", DateTime.Today, 42, "Normal", "Normal", "body", "body")
+        ]);
+        var viewModel = new MainViewModel(service, dialogService: new StubDialogService(true))
+        {
+            IsAutoRefreshEnabled = false,
+            TargetQueuePath = @".\private$\archive"
+        };
+
+        await viewModel.LoadLocalQueuesCommand.ExecuteAsync(null);
+        viewModel.SelectedTreeItem = viewModel.QueueGroups.Single().Children.Single();
+        await WaitUntilAsync(() => viewModel.SelectedMessage is not null);
+        await viewModel.MoveSelectedMessageCommand.ExecuteAsync(null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.LastCopiedTargetQueuePath, Is.EqualTo(@".\private$\archive"));
+            Assert.That(service.LastCopiedMessage?.Id, Is.EqualTo("id-1"));
+            Assert.That(service.LastDeletedQueuePath, Is.EqualTo(@".\private$\orders"));
+            Assert.That(service.LastDeletedMessageId, Is.EqualTo("id-1"));
+            Assert.That(viewModel.IsBusy, Is.False);
+        });
+    }
+
+    [Test]
     public async Task LoadLocalQueuesCommand_WhenServiceFails_UpdatesStatusAndClearsBusyFlag()
     {
         var viewModel = new MainViewModel(new ThrowingMsmqService());
@@ -300,6 +390,8 @@ public sealed class MainViewModelTests
         public string? LastSentBody { get; private set; }
         public string? LastDeletedQueuePath { get; private set; }
         public string? LastDeletedMessageId { get; private set; }
+        public string? LastCopiedTargetQueuePath { get; private set; }
+        public MessageInfo? LastCopiedMessage { get; private set; }
 
         public Task<IReadOnlyList<QueueInfo>> GetQueuesAsync(string machineName, CancellationToken cancellationToken = default)
         {
@@ -324,6 +416,13 @@ public sealed class MainViewModelTests
         {
             LastDeletedQueuePath = queuePath;
             LastDeletedMessageId = messageId;
+            return Task.CompletedTask;
+        }
+
+        public Task CopyMessageAsync(string targetQueuePath, MessageInfo message, CancellationToken cancellationToken = default)
+        {
+            LastCopiedTargetQueuePath = targetQueuePath;
+            LastCopiedMessage = message;
             return Task.CompletedTask;
         }
     }
@@ -359,6 +458,11 @@ public sealed class MainViewModelTests
         {
             return Task.CompletedTask;
         }
+
+        public Task CopyMessageAsync(string targetQueuePath, MessageInfo message, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class UnavailableMsmqService : IMsmqService
@@ -379,6 +483,11 @@ public sealed class MainViewModelTests
         }
 
         public Task DeleteMessageAsync(string queuePath, string messageId, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task CopyMessageAsync(string targetQueuePath, MessageInfo message, CancellationToken cancellationToken = default)
         {
             return Task.CompletedTask;
         }
