@@ -23,4 +23,9 @@ public interface IMsmqService
     /// Sends a new text message to the specified queue.
     /// </summary>
     Task SendMessageAsync(string queuePath, string label, string bodyText, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes a message by receiving it explicitly by id. This is destructive and must be called only after confirmation.
+    /// </summary>
+    Task DeleteMessageAsync(string queuePath, string messageId, CancellationToken cancellationToken = default);
 }

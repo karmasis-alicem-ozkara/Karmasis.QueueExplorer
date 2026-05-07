@@ -196,6 +196,12 @@
                                     Margin="100,0,0,0"
                                     Command="{Binding ExportSelectedMessageCommand}"
                                     Content="Export" />
+                            <Button Grid.Column="2"
+                                    Width="92"
+                                    Height="26"
+                                    Margin="200,0,0,0"
+                                    Command="{Binding DeleteSelectedMessageCommand}"
+                                    Content="Delete" />
                         </Grid>
                         <Grid Margin="12,0,12,12">
                             <Grid.RowDefinitions>

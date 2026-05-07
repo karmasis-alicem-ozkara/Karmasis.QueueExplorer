@@ -6,10 +6,11 @@ using KarmasisQueueExplorer.Core.Models;
 
 namespace KarmasisQueueExplorer.App.ViewModels;
 
-public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBodyFormatter? messageBodyFormatter = null, IMessageExportService? messageExportService = null) : ObservableObject
+public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBodyFormatter? messageBodyFormatter = null, IMessageExportService? messageExportService = null, IDialogService? dialogService = null) : ObservableObject
 {
     private readonly IMessageBodyFormatter _messageBodyFormatter = messageBodyFormatter ?? new MessageBodyFormatter();
     private readonly IMessageExportService _messageExportService = messageExportService ?? new MessageExportService();
+    private readonly IDialogService _dialogService = dialogService ?? new NoOpDialogService();
     private readonly SynchronizationContext? _synchronizationContext = SynchronizationContext.Current;
     private CancellationTokenSource? _messageRefreshCts;
 
@@ -264,6 +265,47 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
         }
     }
 
+    [RelayCommand]
+    private async Task DeleteSelectedMessageAsync(CancellationToken cancellationToken)
+    {
+        if (SelectedQueue is null || SelectedMessage is null)
+        {
+            StatusMessage = "Select a queue message before deleting.";
+            return;
+        }
+
+        var confirmed = await _dialogService.ConfirmAsync(
+            "Delete selected message",
+            $"Delete message '{SelectedMessage.Label}' from {SelectedQueue.Path}? This operation cannot be undone.",
+            cancellationToken);
+
+        if (!confirmed)
+        {
+            StatusMessage = "Delete cancelled.";
+            return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            await msmqService.DeleteMessageAsync(SelectedQueue.Path, SelectedMessage.Id, cancellationToken);
+            StatusMessage = $"Deleted message {SelectedMessage.Label}.";
+            await LoadMessagesAsync(SelectedQueue, cancellationToken, silent: true);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Delete cancelled.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to delete message: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
     private async Task LoadMessagesAndStartAutoRefreshAsync(QueueNodeViewModel queue)
     {
         var cts = new CancellationTokenSource();
@@ -390,5 +432,13 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
         ];
 
         return new ObservableCollection<QueueGroupViewModel>(groups.Where(group => group.Count > 0));
+    }
+
+    private sealed class NoOpDialogService : IDialogService
+    {
+        public Task<bool> ConfirmAsync(string title, string message, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(false);
+        }
     }
 }

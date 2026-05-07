@@ -206,6 +206,61 @@ public sealed class MainViewModelTests
     }
 
     [Test]
+    public async Task DeleteSelectedMessageCommand_WhenNotConfirmed_DoesNotDelete()
+    {
+        var service = new StubMsmqService(
+        [
+            new QueueInfo("orders", @".\private$\orders", ".", QueueType.Private)
+        ],
+        [
+            new MessageInfo("id-1", "OrderCreated", DateTime.Today, 42, "Normal", "Normal", "body", "body")
+        ]);
+        var viewModel = new MainViewModel(service, dialogService: new StubDialogService(false))
+        {
+            IsAutoRefreshEnabled = false
+        };
+
+        await viewModel.LoadLocalQueuesCommand.ExecuteAsync(null);
+        viewModel.SelectedTreeItem = viewModel.QueueGroups.Single().Children.Single();
+        await WaitUntilAsync(() => viewModel.SelectedMessage is not null);
+        await viewModel.DeleteSelectedMessageCommand.ExecuteAsync(null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.LastDeletedMessageId, Is.Null);
+            Assert.That(viewModel.StatusMessage, Is.EqualTo("Delete cancelled."));
+        });
+    }
+
+    [Test]
+    public async Task DeleteSelectedMessageCommand_WhenConfirmed_DeletesSelectedMessage()
+    {
+        var service = new StubMsmqService(
+        [
+            new QueueInfo("orders", @".\private$\orders", ".", QueueType.Private)
+        ],
+        [
+            new MessageInfo("id-1", "OrderCreated", DateTime.Today, 42, "Normal", "Normal", "body", "body")
+        ]);
+        var viewModel = new MainViewModel(service, dialogService: new StubDialogService(true))
+        {
+            IsAutoRefreshEnabled = false
+        };
+
+        await viewModel.LoadLocalQueuesCommand.ExecuteAsync(null);
+        viewModel.SelectedTreeItem = viewModel.QueueGroups.Single().Children.Single();
+        await WaitUntilAsync(() => viewModel.SelectedMessage is not null);
+        await viewModel.DeleteSelectedMessageCommand.ExecuteAsync(null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.LastDeletedQueuePath, Is.EqualTo(@".\private$\orders"));
+            Assert.That(service.LastDeletedMessageId, Is.EqualTo("id-1"));
+            Assert.That(viewModel.IsBusy, Is.False);
+        });
+    }
+
+    [Test]
     public async Task LoadLocalQueuesCommand_WhenServiceFails_UpdatesStatusAndClearsBusyFlag()
     {
         var viewModel = new MainViewModel(new ThrowingMsmqService());
@@ -243,6 +298,8 @@ public sealed class MainViewModelTests
         public string? LastSentQueuePath { get; private set; }
         public string? LastSentLabel { get; private set; }
         public string? LastSentBody { get; private set; }
+        public string? LastDeletedQueuePath { get; private set; }
+        public string? LastDeletedMessageId { get; private set; }
 
         public Task<IReadOnlyList<QueueInfo>> GetQueuesAsync(string machineName, CancellationToken cancellationToken = default)
         {
@@ -260,6 +317,13 @@ public sealed class MainViewModelTests
             LastSentQueuePath = queuePath;
             LastSentLabel = label;
             LastSentBody = bodyText;
+            return Task.CompletedTask;
+        }
+
+        public Task DeleteMessageAsync(string queuePath, string messageId, CancellationToken cancellationToken = default)
+        {
+            LastDeletedQueuePath = queuePath;
+            LastDeletedMessageId = messageId;
             return Task.CompletedTask;
         }
     }
@@ -290,6 +354,11 @@ public sealed class MainViewModelTests
         {
             return Task.CompletedTask;
         }
+
+        public Task DeleteMessageAsync(string queuePath, string messageId, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class UnavailableMsmqService : IMsmqService
@@ -308,6 +377,11 @@ public sealed class MainViewModelTests
         {
             return Task.CompletedTask;
         }
+
+        public Task DeleteMessageAsync(string queuePath, string messageId, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class StubMessageExportService : IMessageExportService
@@ -321,6 +395,14 @@ public sealed class MainViewModelTests
             ExportedMessage = message;
             QueuePath = queuePath;
             return Task.FromResult(@"C:\exports\message.txt");
+        }
+    }
+
+    private sealed class StubDialogService(bool confirmResult) : IDialogService
+    {
+        public Task<bool> ConfirmAsync(string title, string message, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(confirmResult);
         }
     }
 }

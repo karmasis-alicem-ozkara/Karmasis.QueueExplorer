@@ -1,4 +1,5 @@
 ﻿using KarmasisQueueExplorer.App.ViewModels;
+using KarmasisQueueExplorer.App.Services;
 using KarmasisQueueExplorer.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -21,6 +22,7 @@ public partial class App : Application
                 services.AddSingleton<IMsmqService, MsmqService>();
                 services.AddSingleton<IMessageBodyFormatter, MessageBodyFormatter>();
                 services.AddSingleton<IMessageExportService, MessageExportService>();
+                services.AddSingleton<IDialogService, WpfDialogService>();
                 services.AddTransient<MainViewModel>();
                 services.AddTransient<MainWindow>();
             })

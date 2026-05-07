@@ -53,6 +53,60 @@ public sealed class MsmqService : IMsmqService
         return Task.Run(() => SendTextMessage(queuePath, label, bodyText, cancellationToken), cancellationToken);
     }
 
+    /// <inheritdoc />
+    public Task DeleteMessageAsync(string queuePath, string messageId, CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() => DeleteMessageById(queuePath, messageId, cancellationToken), cancellationToken);
+    }
+
+    private void DeleteMessageById(string queuePath, string messageId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (string.IsNullOrWhiteSpace(messageId))
+        {
+            throw new ArgumentException("Message id cannot be empty.", nameof(messageId));
+        }
+
+        if (!OperatingSystem.IsWindows())
+        {
+            throw new MsmqUnavailableException("MSMQ delete is only supported on Windows.");
+        }
+
+        object? queue = null;
+
+        try
+        {
+            var queueInfoType = Type.GetTypeFromProgID("MSMQ.MSMQQueueInfo");
+            if (queueInfoType is null)
+            {
+                throw new MsmqUnavailableException("MSMQ COM components are unavailable. Enable the 'Microsoft Message Queue (MSMQ) Server' Windows Feature and refresh.");
+            }
+
+            dynamic queueInfo = Activator.CreateInstance(queueInfoType)!;
+            queueInfo.PathName = queuePath;
+            queue = queueInfo.Open(1, MqDenyNone);
+            dynamic dynamicQueue = queue;
+
+            // ReceiveById removes exactly the selected message. This method is intentionally
+            // exposed only through ViewModel confirmation flow.
+            dynamicQueue.ReceiveById(messageId);
+        }
+        catch (MsmqUnavailableException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete message {MessageId} from {QueuePath}.", messageId, queuePath);
+            throw new InvalidOperationException($"Failed to delete message from {queuePath}: {ex.Message}", ex);
+        }
+        finally
+        {
+            TryCloseComQueue(queue);
+        }
+    }
+
     private void SendTextMessage(string queuePath, string label, string bodyText, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
