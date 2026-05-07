@@ -23,6 +23,8 @@
         <Border Grid.Row="0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
             <DockPanel Margin="14,0">
                 <TextBlock Text="KarmasisQueueExplorer" VerticalAlignment="Center" FontSize="18" FontWeight="SemiBold" />
+
+                <!-- Machine textbox -->
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
                     <TextBlock Text="Machine" VerticalAlignment="Center" Foreground="{StaticResource MutedForegroundBrush}" Margin="0,0,8,0" />
                     <TextBox Width="150"
@@ -32,6 +34,42 @@
                              Foreground="{StaticResource ForegroundBrush}"
                              BorderBrush="{StaticResource BorderBrush}" />
                 </StackPanel>
+
+                <!-- Connection profile management -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+                    <TextBlock Text="Profile" VerticalAlignment="Center" Foreground="{StaticResource MutedForegroundBrush}" Margin="0,0,8,0" />
+                    <ComboBox Width="160"
+                              Height="28"
+                              ItemsSource="{Binding SavedProfiles}"
+                              SelectedItem="{Binding SelectedSavedProfile, Mode=TwoWay}"
+                              DisplayMemberPath="DisplayName"
+                              ToolTip="Select a saved connection profile"
+                              Background="{StaticResource PanelAltBrush}"
+                              Foreground="{StaticResource ForegroundBrush}"
+                              BorderBrush="{StaticResource BorderBrush}" />
+                    <TextBox Width="120"
+                             Height="28"
+                             Margin="6,0,0,0"
+                             Text="{Binding NewProfileDisplayName, UpdateSourceTrigger=PropertyChanged}"
+                             Background="{StaticResource PanelAltBrush}"
+                             Foreground="{StaticResource ForegroundBrush}"
+                             BorderBrush="{StaticResource BorderBrush}"
+                             ToolTip="Profile display name (leave empty to use machine name)" />
+                    <Button Width="54"
+                            Height="28"
+                            Margin="4,0,0,0"
+                            Command="{Binding SaveCurrentProfileCommand}"
+                            Content="Save"
+                            ToolTip="Save current machine as a connection profile" />
+                    <Button Width="60"
+                            Height="28"
+                            Margin="4,0,0,0"
+                            Command="{Binding RemoveSelectedProfileCommand}"
+                            Content="Remove"
+                            ToolTip="Remove the selected connection profile" />
+                </StackPanel>
+
+                <!-- Auto-refresh controls -->
                 <CheckBox DockPanel.Dock="Right"
                           Margin="16,0,0,0"
                           VerticalAlignment="Center"
@@ -45,6 +83,8 @@
                           SelectedItem="{Binding AutoRefreshIntervalSeconds, Mode=TwoWay}"
                           Background="{StaticResource PanelAltBrush}"
                           Foreground="{StaticResource ForegroundBrush}" />
+
+                <!-- Action buttons -->
                 <Button DockPanel.Dock="Right"
                         Width="92"
                         Height="30"

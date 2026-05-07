@@ -461,6 +461,168 @@ public sealed class MainViewModelTests
         });
     }
 
+    // ── Connection profile tests ─────────────────────────────────────────────
+
+    [Test]
+    public async Task InitializeAsync_LoadsProfilesFromStoreIntoSavedProfiles()
+    {
+        ConnectionProfile[] stored =
+        [
+            new ConnectionProfile("Local Machine", "."),
+            new ConnectionProfile("Test Server", "TEST-SRV")
+        ];
+        var store = new StubConnectionProfileStore(stored);
+        var viewModel = new MainViewModel(new StubMsmqService([]), connectionProfileStore: store);
+
+        await viewModel.InitializeAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.SavedProfiles, Has.Count.EqualTo(2));
+            Assert.That(viewModel.SavedProfiles[0].DisplayName, Is.EqualTo("Local Machine"));
+            Assert.That(viewModel.SavedProfiles[1].MachineName, Is.EqualTo("TEST-SRV"));
+        });
+    }
+
+    [Test]
+    public async Task InitializeAsync_PreSelectsProfileMatchingDefaultMachineName()
+    {
+        ConnectionProfile[] stored =
+        [
+            new ConnectionProfile("Local Machine", "."),
+            new ConnectionProfile("Test Server", "TEST-SRV")
+        ];
+        var store = new StubConnectionProfileStore(stored);
+        var viewModel = new MainViewModel(new StubMsmqService([]), connectionProfileStore: store)
+        {
+            TargetMachineName = "."
+        };
+
+        await viewModel.InitializeAsync();
+
+        Assert.That(viewModel.SelectedSavedProfile?.MachineName, Is.EqualTo("."));
+    }
+
+    [Test]
+    public async Task SelectedSavedProfile_WhenChanged_UpdatesTargetMachineName()
+    {
+        ConnectionProfile[] stored =
+        [
+            new ConnectionProfile("Local Machine", "."),
+            new ConnectionProfile("Build Server", "BUILD-SRV")
+        ];
+        var store = new StubConnectionProfileStore(stored);
+        var viewModel = new MainViewModel(new StubMsmqService([]), connectionProfileStore: store);
+        await viewModel.InitializeAsync();
+
+        viewModel.SelectedSavedProfile = viewModel.SavedProfiles.Single(p => p.MachineName == "BUILD-SRV");
+
+        Assert.That(viewModel.TargetMachineName, Is.EqualTo("BUILD-SRV"));
+    }
+
+    [Test]
+    public async Task SaveCurrentProfileCommand_AddsNewProfileAndPersists()
+    {
+        var store = new StubConnectionProfileStore([]);
+        var viewModel = new MainViewModel(new StubMsmqService([]), connectionProfileStore: store)
+        {
+            TargetMachineName = "NEW-SRV",
+            NewProfileDisplayName = "New Server"
+        };
+
+        await viewModel.SaveCurrentProfileCommand.ExecuteAsync(null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.SavedProfiles, Has.Count.EqualTo(1));
+            Assert.That(viewModel.SavedProfiles[0].DisplayName, Is.EqualTo("New Server"));
+            Assert.That(viewModel.SavedProfiles[0].MachineName, Is.EqualTo("NEW-SRV"));
+            Assert.That(store.SavedProfiles, Has.Count.EqualTo(1));
+            Assert.That(viewModel.NewProfileDisplayName, Is.EqualTo(string.Empty));
+            Assert.That(viewModel.StatusMessage, Does.Contain("New Server"));
+        });
+    }
+
+    [Test]
+    public async Task SaveCurrentProfileCommand_WhenNoDisplayName_UsesMachineNameAsDisplayName()
+    {
+        var store = new StubConnectionProfileStore([]);
+        var viewModel = new MainViewModel(new StubMsmqService([]), connectionProfileStore: store)
+        {
+            TargetMachineName = "IMPLICIT-SRV",
+            NewProfileDisplayName = string.Empty
+        };
+
+        await viewModel.SaveCurrentProfileCommand.ExecuteAsync(null);
+
+        Assert.That(viewModel.SavedProfiles.Single().DisplayName, Is.EqualTo("IMPLICIT-SRV"));
+    }
+
+    [Test]
+    public async Task SaveCurrentProfileCommand_WhenMachineAlreadyExists_UpdatesDisplayNameInPlace()
+    {
+        ConnectionProfile[] stored = [new ConnectionProfile("Old Name", "SAME-SRV")];
+        var store = new StubConnectionProfileStore(stored);
+        var viewModel = new MainViewModel(new StubMsmqService([]), connectionProfileStore: store);
+        await viewModel.InitializeAsync();
+
+        viewModel.TargetMachineName = "SAME-SRV";
+        viewModel.NewProfileDisplayName = "Updated Name";
+        await viewModel.SaveCurrentProfileCommand.ExecuteAsync(null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.SavedProfiles, Has.Count.EqualTo(1), "Should not add a duplicate entry");
+            Assert.That(viewModel.SavedProfiles[0].DisplayName, Is.EqualTo("Updated Name"));
+        });
+    }
+
+    [Test]
+    public async Task RemoveSelectedProfileCommand_RemovesProfileAndPersists()
+    {
+        ConnectionProfile[] stored =
+        [
+            new ConnectionProfile("Local Machine", "."),
+            new ConnectionProfile("Test Server", "TEST-SRV")
+        ];
+        var store = new StubConnectionProfileStore(stored);
+        var viewModel = new MainViewModel(new StubMsmqService([]), connectionProfileStore: store);
+        await viewModel.InitializeAsync();
+
+        viewModel.SelectedSavedProfile = viewModel.SavedProfiles.Single(p => p.MachineName == "TEST-SRV");
+        await viewModel.RemoveSelectedProfileCommand.ExecuteAsync(null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.SavedProfiles, Has.Count.EqualTo(1));
+            Assert.That(viewModel.SavedProfiles.Any(p => p.MachineName == "TEST-SRV"), Is.False);
+            Assert.That(store.SavedProfiles, Has.Count.EqualTo(1));
+            Assert.That(viewModel.StatusMessage, Does.Contain("Test Server"));
+        });
+    }
+
+    [Test]
+    public async Task RemoveSelectedProfileCommand_CanExecute_FalseWhenNoProfileSelected()
+    {
+        var store = new StubConnectionProfileStore([]);
+        var viewModel = new MainViewModel(new StubMsmqService([]), connectionProfileStore: store);
+        await viewModel.InitializeAsync();
+
+        Assert.That(viewModel.RemoveSelectedProfileCommand.CanExecute(null), Is.False);
+    }
+
+    [Test]
+    public async Task RemoveSelectedProfileCommand_CanExecute_TrueWhenProfileSelected()
+    {
+        ConnectionProfile[] stored = [new ConnectionProfile("Local Machine", ".")];
+        var store = new StubConnectionProfileStore(stored);
+        var viewModel = new MainViewModel(new StubMsmqService([]), connectionProfileStore: store);
+        await viewModel.InitializeAsync();
+
+        // InitializeAsync pre-selects the first profile
+        Assert.That(viewModel.RemoveSelectedProfileCommand.CanExecute(null), Is.True);
+    }
+
     [Test]
     public async Task LoadLocalQueuesCommand_WhenServiceFails_UpdatesStatusAndClearsBusyFlag()
     {
@@ -640,6 +802,24 @@ public sealed class MainViewModelTests
         public Task<bool> ConfirmAsync(string title, string message, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(confirmResult);
+        }
+    }
+
+    private sealed class StubConnectionProfileStore(IReadOnlyList<ConnectionProfile> initialProfiles) : IConnectionProfileStore
+    {
+        private List<ConnectionProfile> _profiles = [.. initialProfiles];
+
+        public IReadOnlyList<ConnectionProfile> SavedProfiles => _profiles;
+
+        public Task<IReadOnlyList<ConnectionProfile>> LoadProfilesAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<ConnectionProfile>>(_profiles);
+        }
+
+        public Task SaveProfilesAsync(IReadOnlyList<ConnectionProfile> profiles, CancellationToken cancellationToken = default)
+        {
+            _profiles = [.. profiles];
+            return Task.CompletedTask;
         }
     }
 }

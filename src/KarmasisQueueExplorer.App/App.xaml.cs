@@ -43,6 +43,7 @@ public partial class App : Application
                 services.AddSingleton<IMessageBodyFormatter, MessageBodyFormatter>();
                 services.AddSingleton<IMessageExportService, MessageExportService>();
                 services.AddSingleton<IDialogService, WpfDialogService>();
+                services.AddSingleton<IConnectionProfileStore, ConnectionProfileStore>();
                 services.AddTransient<MainViewModel>();
                 services.AddTransient<MainWindow>();
             })
@@ -60,6 +61,13 @@ public partial class App : Application
         await _host.StartAsync();
 
         var mainWindow = _host.Services.GetRequiredService<MainWindow>();
+
+        // Load persisted connection profiles before showing the window.
+        if (mainWindow.DataContext is MainViewModel viewModel)
+        {
+            await viewModel.InitializeAsync();
+        }
+
         mainWindow.Show();
     }
 

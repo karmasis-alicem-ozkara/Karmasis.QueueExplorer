@@ -6,11 +6,17 @@ using KarmasisQueueExplorer.Core.Models;
 
 namespace KarmasisQueueExplorer.App.ViewModels;
 
-public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBodyFormatter? messageBodyFormatter = null, IMessageExportService? messageExportService = null, IDialogService? dialogService = null) : ObservableObject
+public sealed partial class MainViewModel(
+    IMsmqService msmqService,
+    IMessageBodyFormatter? messageBodyFormatter = null,
+    IMessageExportService? messageExportService = null,
+    IDialogService? dialogService = null,
+    IConnectionProfileStore? connectionProfileStore = null) : ObservableObject
 {
     private readonly IMessageBodyFormatter _messageBodyFormatter = messageBodyFormatter ?? new MessageBodyFormatter();
     private readonly IMessageExportService _messageExportService = messageExportService ?? new MessageExportService();
     private readonly IDialogService _dialogService = dialogService ?? new NoOpDialogService();
+    private readonly IConnectionProfileStore _connectionProfileStore = connectionProfileStore ?? new NoOpConnectionProfileStore();
     private readonly SynchronizationContext? _synchronizationContext = SynchronizationContext.Current;
     private CancellationTokenSource? _messageRefreshCts;
 
@@ -22,6 +28,16 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
 
     [ObservableProperty]
     private string _targetMachineName = ".";
+
+    [ObservableProperty]
+    private ObservableCollection<ConnectionProfile> _savedProfiles = [];
+
+    [ObservableProperty]
+    private ConnectionProfile? _selectedSavedProfile;
+
+    /// <summary>Display name typed by the user when saving a new profile.</summary>
+    [ObservableProperty]
+    private string _newProfileDisplayName = string.Empty;
 
     [ObservableProperty]
     private ObservableCollection<MessageInfo> _messages = [];
@@ -165,6 +181,79 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
         _messageRefreshCts?.Cancel();
         _ = LoadMessagesAndStartAutoRefreshAsync(SelectedQueue);
     }
+
+    partial void OnSelectedSavedProfileChanged(ConnectionProfile? value)
+    {
+        if (value is not null)
+        {
+            TargetMachineName = value.MachineName;
+        }
+
+        RemoveSelectedProfileCommand.NotifyCanExecuteChanged();
+    }
+
+    /// <summary>
+    /// Loads saved connection profiles from the store on application startup.
+    /// Should be called once by the host after the main window is created.
+    /// </summary>
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
+    {
+        var profiles = await _connectionProfileStore.LoadProfilesAsync(cancellationToken);
+        SavedProfiles = new ObservableCollection<ConnectionProfile>(profiles);
+
+        // Pre-select the local machine profile if present, otherwise keep TargetMachineName as default.
+        SelectedSavedProfile = SavedProfiles.FirstOrDefault(p => p.MachineName == TargetMachineName)
+            ?? SavedProfiles.FirstOrDefault();
+    }
+
+    [RelayCommand]
+    private async Task SaveCurrentProfileAsync(CancellationToken cancellationToken)
+    {
+        var machineName = TargetMachineName.Trim();
+        if (string.IsNullOrWhiteSpace(machineName))
+        {
+            StatusMessage = "Enter a machine name before saving a profile.";
+            return;
+        }
+
+        var displayName = string.IsNullOrWhiteSpace(NewProfileDisplayName)
+            ? machineName
+            : NewProfileDisplayName.Trim();
+
+        // Replace an existing profile for the same machine name, or add a new one.
+        var existing = SavedProfiles.FirstOrDefault(p => p.MachineName.Equals(machineName, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            var index = SavedProfiles.IndexOf(existing);
+            SavedProfiles[index] = new ConnectionProfile(displayName, machineName);
+        }
+        else
+        {
+            SavedProfiles.Add(new ConnectionProfile(displayName, machineName));
+        }
+
+        await _connectionProfileStore.SaveProfilesAsync([.. SavedProfiles], cancellationToken);
+        SelectedSavedProfile = SavedProfiles.FirstOrDefault(p => p.MachineName.Equals(machineName, StringComparison.OrdinalIgnoreCase));
+        NewProfileDisplayName = string.Empty;
+        StatusMessage = $"Saved connection profile '{displayName}'.";
+    }
+
+    [RelayCommand(CanExecute = nameof(HasSelectedProfile))]
+    private async Task RemoveSelectedProfileAsync(CancellationToken cancellationToken)
+    {
+        if (SelectedSavedProfile is null)
+        {
+            return;
+        }
+
+        var removed = SelectedSavedProfile;
+        SavedProfiles.Remove(removed);
+        SelectedSavedProfile = SavedProfiles.FirstOrDefault();
+        await _connectionProfileStore.SaveProfilesAsync([.. SavedProfiles], cancellationToken);
+        StatusMessage = $"Removed connection profile '{removed.DisplayName}'.";
+    }
+
+    private bool HasSelectedProfile() => SelectedSavedProfile is not null;
 
     [RelayCommand]
     private async Task LoadLocalQueuesAsync(CancellationToken cancellationToken)
@@ -599,5 +688,14 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
         {
             return Task.FromResult(false);
         }
+    }
+
+    private sealed class NoOpConnectionProfileStore : IConnectionProfileStore
+    {
+        public Task<IReadOnlyList<ConnectionProfile>> LoadProfilesAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<ConnectionProfile>>([]);
+
+        public Task SaveProfilesAsync(IReadOnlyList<ConnectionProfile> profiles, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
     }
 }
