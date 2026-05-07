@@ -7,126 +7,159 @@
          xmlns:vm="clr-namespace:KarmasisQueueExplorer.App.ViewModels"
          mc:Ignorable="d"
          Title="Karmasis Queue Explorer"
-         Height="720"
-         Width="1180"
-         MinHeight="560"
-         MinWidth="900"
+         Height="760"
+         Width="1280"
+         MinHeight="580"
+         MinWidth="1080"
          Background="{StaticResource BackgroundBrush}"
          Foreground="{StaticResource ForegroundBrush}">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="48" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="28" />
+            <RowDefinition Height="26" />
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
-            <DockPanel Margin="14,0">
-                <TextBlock Text="KarmasisQueueExplorer" VerticalAlignment="Center" FontSize="18" FontWeight="SemiBold" />
+        <!-- ═══════════════════════════════════════════════════════════════════
+             TOOLBAR
+             Grid layout (Auto | * | Auto) avoids the DockPanel LastChildFill
+             bug where the last right-docked child fills the centre gap.
+             Controls are split into labelled groups separated by 1-px rules.
+        ══════════════════════════════════════════════════════════════════════ -->
+        <Border Grid.Row="0"
+                Background="{StaticResource PanelBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,0,0,1">
+            <Grid Margin="14,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />   <!-- App title -->
+                    <ColumnDefinition Width="*" />      <!-- Elastic spacer -->
+                    <ColumnDefinition Width="Auto" />   <!-- Control groups -->
+                </Grid.ColumnDefinitions>
 
-                <!-- Machine textbox -->
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
-                    <TextBlock Text="Machine" VerticalAlignment="Center" Foreground="{StaticResource MutedForegroundBrush}" Margin="0,0,8,0" />
-                    <TextBox Width="150"
-                             Height="28"
-                             Text="{Binding TargetMachineName, UpdateSourceTrigger=PropertyChanged}"
-                             Background="{StaticResource PanelAltBrush}"
-                             Foreground="{StaticResource ForegroundBrush}"
-                             BorderBrush="{StaticResource BorderBrush}" />
-                </StackPanel>
+                <!-- App title -->
+                <TextBlock Grid.Column="0"
+                           Text="KarmasisQueueExplorer"
+                           VerticalAlignment="Center"
+                           FontSize="16"
+                           FontWeight="SemiBold" />
 
-                <!-- Connection profile management -->
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
-                    <TextBlock Text="Profile" VerticalAlignment="Center" Foreground="{StaticResource MutedForegroundBrush}" Margin="0,0,8,0" />
-                    <ComboBox Width="160"
-                              Height="28"
+                <!-- All toolbar controls in a single right-aligned StackPanel -->
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center">
+
+                    <!-- ── Group: Connection profile ──────────────────────── -->
+                    <TextBlock Style="{StaticResource ToolbarLabel}" Text="Profile" />
+                    <ComboBox Width="140"
                               ItemsSource="{Binding SavedProfiles}"
                               SelectedItem="{Binding SelectedSavedProfile, Mode=TwoWay}"
                               DisplayMemberPath="DisplayName"
                               IsEnabled="{Binding IsNotBusy}"
-                              ToolTip="Select a saved profile to connect immediately. Save/Remove manage the list."
-                              Background="{StaticResource PanelAltBrush}"
-                              Foreground="{StaticResource ForegroundBrush}"
-                              BorderBrush="{StaticResource BorderBrush}" />
-                    <TextBox Width="120"
-                             Height="28"
-                             Margin="6,0,0,0"
+                              ToolTip="Select a saved profile — queues load automatically" />
+                    <TextBox Width="90"
+                             Margin="4,0,0,0"
                              Text="{Binding NewProfileDisplayName, UpdateSourceTrigger=PropertyChanged}"
-                             Background="{StaticResource PanelAltBrush}"
-                             Foreground="{StaticResource ForegroundBrush}"
-                             BorderBrush="{StaticResource BorderBrush}"
-                             ToolTip="Profile display name (leave empty to use machine name)" />
-                    <Button Width="54"
-                            Height="28"
-                            Margin="4,0,0,0"
+                             ToolTip="Optional display name when saving (leave blank to use machine name)" />
+                    <Button Margin="4,0,0,0"
                             Command="{Binding SaveCurrentProfileCommand}"
                             Content="Save"
                             ToolTip="Save current machine as a connection profile" />
-                    <Button Width="60"
-                            Height="28"
-                            Margin="4,0,0,0"
+                    <Button Margin="4,0,0,0"
                             Command="{Binding RemoveSelectedProfileCommand}"
                             Content="Remove"
                             ToolTip="Remove the selected connection profile" />
+
+                    <Rectangle Style="{StaticResource ToolbarSeparator}" />
+
+                    <!-- ── Group: Target machine ──────────────────────────── -->
+                    <TextBlock Style="{StaticResource ToolbarLabel}" Text="Machine" />
+                    <TextBox Width="130"
+                             Text="{Binding TargetMachineName, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="MSMQ host name or IP. Use '.' for the local machine." />
+
+                    <Rectangle Style="{StaticResource ToolbarSeparator}" />
+
+                    <!-- ── Group: Auto-refresh ────────────────────────────── -->
+                    <ComboBox Width="55"
+                              ItemsSource="{Binding AutoRefreshIntervalOptions}"
+                              SelectedItem="{Binding AutoRefreshIntervalSeconds, Mode=TwoWay}"
+                              ToolTip="Refresh interval in seconds" />
+                    <CheckBox Margin="6,0,0,0"
+                              IsChecked="{Binding IsAutoRefreshEnabled}"
+                              Content="Auto-refresh"
+                              ToolTip="Toggle automatic message list refresh" />
+
+                    <Rectangle Style="{StaticResource ToolbarSeparator}" />
+
+                    <!-- ── Group: Actions ─────────────────────────────────── -->
+                    <Button Command="{Binding LoadLocalQueuesCommand}"
+                            Content="Queues"
+                            ToolTip="Load MSMQ queues from the target machine (F5)" />
+                    <Button Margin="4,0,0,0"
+                            Command="{Binding RefreshMessagesCommand}"
+                            Content="Messages"
+                            ToolTip="Reload messages for the selected queue" />
+                    <Button Margin="4,0,0,0"
+                            Command="{Binding PurgeSelectedQueueCommand}"
+                            Content="Purge"
+                            ToolTip="Delete ALL messages from the selected queue (requires confirmation)" />
+
                 </StackPanel>
-
-                <!-- Auto-refresh controls -->
-                <CheckBox DockPanel.Dock="Right"
-                          Margin="16,0,0,0"
-                          VerticalAlignment="Center"
-                          IsChecked="{Binding IsAutoRefreshEnabled}"
-                          Content="Auto refresh" />
-                <ComboBox DockPanel.Dock="Right"
-                          Width="70"
-                          Height="28"
-                          Margin="8,0,0,0"
-                          ItemsSource="{Binding AutoRefreshIntervalOptions}"
-                          SelectedItem="{Binding AutoRefreshIntervalSeconds, Mode=TwoWay}"
-                          Background="{StaticResource PanelAltBrush}"
-                          Foreground="{StaticResource ForegroundBrush}" />
-
-                <!-- Action buttons -->
-                <Button DockPanel.Dock="Right"
-                        Width="92"
-                        Height="30"
-                        Margin="8,0,0,0"
-                        Command="{Binding LoadLocalQueuesCommand}"
-                        Content="Queues" />
-                <Button DockPanel.Dock="Right"
-                        Width="98"
-                        Height="30"
-                        Margin="8,0,0,0"
-                        Command="{Binding RefreshMessagesCommand}"
-                        Content="Messages" />
-                <Button DockPanel.Dock="Right"
-                        Width="86"
-                        Height="30"
-                        Margin="8,0,0,0"
-                        Command="{Binding PurgeSelectedQueueCommand}"
-                        Content="Purge" />
-            </DockPanel>
+            </Grid>
         </Border>
 
+        <!-- ═══════════════════════════════════════════════════════════════════
+             MAIN CONTENT  –  Queue tree (left) | Message list + Detail (right)
+        ══════════════════════════════════════════════════════════════════════ -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="320" />
+                <ColumnDefinition Width="300" MinWidth="180" />
                 <ColumnDefinition Width="5" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+            <!-- ── Left panel: Queue tree ──────────────────────────────────── -->
+            <Border Grid.Column="0"
+                    Background="{StaticResource PanelBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,0,1,0">
                 <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Local MSMQ Queues" Margin="14" FontSize="14" FontWeight="SemiBold" />
+
+                    <!-- Dynamic title reflecting the connected machine -->
+                    <Grid DockPanel.Dock="Top" Margin="14,12,14,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center">
+                            <Run Text="Queues — " /><Run Text="{Binding TargetMachineName, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding Queues.Count, StringFormat={}{0} queue(s), Mode=OneWay}"
+                                   Foreground="{StaticResource MutedForegroundBrush}"
+                                   FontSize="11"
+                                   VerticalAlignment="Center" />
+                    </Grid>
+
+                    <!-- MSMQ-unavailable warning banner -->
                     <Border DockPanel.Dock="Top"
-                            Margin="14,0,14,10"
-                            Padding="10"
-                            Background="#FF3F2D13"
-                            BorderBrush="#FFF59E0B"
+                            Margin="14,0,14,8"
+                            Padding="10,8"
+                            Background="{StaticResource WarningBgBrush}"
+                            BorderBrush="{StaticResource WarningBorderBrush}"
                             BorderThickness="1"
-                            CornerRadius="6"
+                            CornerRadius="4"
                             Visibility="{Binding HasWarning, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <TextBlock Text="{Binding WarningMessage}" TextWrapping="Wrap" Foreground="#FFFDE68A" />
+                        <TextBlock Text="{Binding WarningMessage}"
+                                   TextWrapping="Wrap"
+                                   FontSize="12"
+                                   Foreground="{StaticResource WarningFgBrush}" />
                     </Border>
+
                     <TreeView ItemsSource="{Binding QueueGroups}"
                               behaviors:TreeViewSelectionBehavior.SelectedItem="{Binding SelectedTreeItem, Mode=TwoWay}"
                               Background="{StaticResource PanelBrush}"
@@ -134,15 +167,15 @@
                               Foreground="{StaticResource ForegroundBrush}">
                         <TreeView.Resources>
                             <HierarchicalDataTemplate DataType="{x:Type vm:QueueGroupViewModel}" ItemsSource="{Binding Children}">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="▾" Foreground="{StaticResource AccentBrush}" Margin="0,0,8,0" />
-                                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                                <StackPanel Orientation="Horizontal" Margin="0,2">
+                                    <TextBlock Text="▾" Foreground="{StaticResource AccentBrush}" Margin="0,0,6,0" />
+                                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="12" />
                                 </StackPanel>
                             </HierarchicalDataTemplate>
                             <DataTemplate DataType="{x:Type vm:QueueNodeViewModel}">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="•" Foreground="{StaticResource AccentBrush}" Margin="0,0,8,0" />
-                                    <TextBlock Text="{Binding DisplayName}" />
+                                <StackPanel Orientation="Horizontal" Margin="0,2">
+                                    <TextBlock Text="•" Foreground="{StaticResource AccentBrush}" Margin="0,0,6,0" />
+                                    <TextBlock Text="{Binding DisplayName}" FontSize="12" />
                                 </StackPanel>
                             </DataTemplate>
                         </TreeView.Resources>
@@ -150,172 +183,281 @@
                 </DockPanel>
             </Border>
 
-            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="{StaticResource BorderBrush}" />
+            <GridSplitter Grid.Column="1"
+                          Width="5"
+                          HorizontalAlignment="Stretch"
+                          Background="{StaticResource BorderBrush}" />
 
+            <!-- ── Right panel: Message list (top) + Message detail (bottom) ── -->
             <Grid Grid.Column="2">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="2*" />
+                    <RowDefinition Height="2*" MinHeight="120" />
                     <RowDefinition Height="5" />
-                    <RowDefinition Height="*" />
+                    <RowDefinition Height="*" MinHeight="160" />
                 </Grid.RowDefinitions>
 
-                <Border Grid.Row="0" Margin="12" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6">
+                <!-- Message list panel -->
+                <Border Grid.Row="0"
+                        Margin="10,10,10,0"
+                        Background="{StaticResource PanelBrush}"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4">
                     <DockPanel>
-                        <Grid DockPanel.Dock="Top" Margin="14">
+
+                        <!-- Message list header: title | filter textbox | last-refresh time -->
+                        <Grid DockPanel.Dock="Top" Margin="14,10,14,8">
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="260" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="Messages" FontSize="14" FontWeight="SemiBold" />
+                            <TextBlock Grid.Column="0"
+                                       Text="Messages"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
                             <TextBox Grid.Column="1"
-                                     Margin="12,0"
                                      Height="26"
+                                     Margin="12,0"
                                      Text="{Binding MessageFilterText, UpdateSourceTrigger=PropertyChanged}"
-                                     Background="{StaticResource PanelAltBrush}"
-                                     Foreground="{StaticResource ForegroundBrush}"
-                                     BorderBrush="{StaticResource BorderBrush}" />
+                                     ToolTip="Filter by label, body content, or message ID" />
                             <TextBlock Grid.Column="2"
                                        Foreground="{StaticResource MutedForegroundBrush}"
-                                       Text="{Binding LastMessageRefreshTime, StringFormat=Last refresh: {0:T}, TargetNullValue=Not refreshed}" />
+                                       FontSize="11"
+                                       VerticalAlignment="Center"
+                                       Text="{Binding LastMessageRefreshTime, StringFormat=Refreshed {0:T}, TargetNullValue=Not refreshed}" />
                         </Grid>
+
                         <DataGrid ItemsSource="{Binding FilteredMessages}"
                                   SelectedItem="{Binding SelectedMessage, Mode=TwoWay}"
                                   AutoGenerateColumns="False"
                                   IsReadOnly="True"
-                                  Margin="12,0,12,12"
+                                  Margin="10,0,10,10"
                                   Background="{StaticResource PanelBrush}"
                                   Foreground="{StaticResource ForegroundBrush}"
                                   BorderBrush="{StaticResource BorderBrush}"
+                                  RowBackground="{StaticResource PanelBrush}"
+                                  AlternatingRowBackground="{StaticResource BackgroundBrush}"
                                   GridLinesVisibility="Horizontal"
                                   HeadersVisibility="Column"
+                                  SelectionMode="Single"
                                   EnableRowVirtualization="True"
                                   EnableColumnVirtualization="True">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Label" Binding="{Binding Label}" Width="160" />
+                                <DataGridTextColumn Header="Label"       Binding="{Binding Label}"       Width="160" />
                                 <DataGridTextColumn Header="Body Preview" Binding="{Binding BodyPreview}" Width="*" />
-                                <DataGridTextColumn Header="Id" Binding="{Binding Id}" Width="220" />
-                                <DataGridTextColumn Header="Sent" Binding="{Binding SentTime}" Width="140" />
-                                <DataGridTextColumn Header="Size" Binding="{Binding BodySize}" Width="80" />
-                                <DataGridTextColumn Header="Priority" Binding="{Binding Priority}" Width="80" />
+                                <DataGridTextColumn Header="ID"          Binding="{Binding Id}"          Width="210" />
+                                <DataGridTextColumn Header="Sent"        Binding="{Binding SentTime}"    Width="130" />
+                                <DataGridTextColumn Header="Size"        Binding="{Binding BodySize}"    Width="70" />
+                                <DataGridTextColumn Header="Priority"    Binding="{Binding Priority}"    Width="70" />
                             </DataGrid.Columns>
                         </DataGrid>
-                        <Grid Margin="18" Visibility="Collapsed">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Text="{Binding SelectedQueue.Name, TargetNullValue=No queue selected}" FontSize="20" FontWeight="SemiBold" />
-                            <TextBlock Grid.Row="1" Margin="0,10,0,0" Text="{Binding SelectedQueue.Path, TargetNullValue=Select a queue from the left tree to inspect it.}" Foreground="{StaticResource MutedForegroundBrush}" />
-                            <TextBlock Grid.Row="2" Margin="0,6,0,0" Text="Incoming messages appear automatically while auto-refresh is enabled." Foreground="{StaticResource MutedForegroundBrush}" />
-                        </Grid>
+
                     </DockPanel>
                 </Border>
 
-                <GridSplitter Grid.Row="1" Height="5" HorizontalAlignment="Stretch" Background="{StaticResource BorderBrush}" />
+                <GridSplitter Grid.Row="1"
+                              Height="5"
+                              HorizontalAlignment="Stretch"
+                              Background="{StaticResource BorderBrush}" />
 
-                <Border Grid.Row="2" Margin="12" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6">
+                <!-- Message detail panel -->
+                <Border Grid.Row="2"
+                        Margin="10,0,10,10"
+                        Background="{StaticResource PanelBrush}"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4">
                     <DockPanel>
-                        <Grid DockPanel.Dock="Top" Margin="14">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="190" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Message Detail" FontSize="14" FontWeight="SemiBold" />
-                            <TextBox Grid.Column="1"
-                                     Height="26"
-                                     Margin="8,0"
-                                     Text="{Binding NewMessageLabel, UpdateSourceTrigger=PropertyChanged}"
-                                     Background="{StaticResource PanelAltBrush}"
-                                     Foreground="{StaticResource ForegroundBrush}"
-                                     BorderBrush="{StaticResource BorderBrush}" />
-                            <Button Grid.Column="2"
-                                    Width="92"
-                                    Height="26"
-                                    Command="{Binding SendMessageCommand}"
-                                    Content="Send Test" />
-                            <Button Grid.Column="2"
-                                    Width="92"
-                                    Height="26"
-                                    Margin="100,0,0,0"
-                                    Command="{Binding ExportSelectedMessageCommand}"
-                                    Content="Export" />
-                            <Button Grid.Column="2"
-                                    Width="92"
-                                    Height="26"
-                                    Margin="200,0,0,0"
-                                    Command="{Binding DeleteSelectedMessageCommand}"
-                                    Content="Delete" />
-                            <TextBox Grid.Column="1"
-                                     Height="26"
-                                     Margin="8,30,0,0"
-                                     Text="{Binding TargetQueuePath, UpdateSourceTrigger=PropertyChanged}"
-                                     Background="{StaticResource PanelAltBrush}"
-                                     Foreground="{StaticResource ForegroundBrush}"
-                                     BorderBrush="{StaticResource BorderBrush}" />
-                            <Button Grid.Column="2"
-                                    Width="92"
-                                    Height="26"
-                                    Margin="0,30,0,0"
-                                    Command="{Binding CopySelectedMessageCommand}"
-                                    Content="Copy" />
-                            <Button Grid.Column="2"
-                                    Width="92"
-                                    Height="26"
-                                    Margin="100,30,0,0"
-                                    Command="{Binding MoveSelectedMessageCommand}"
-                                    Content="Move" />
-                        </Grid>
-                        <Grid Margin="12,0,12,12">
+
+                        <!-- ── Detail panel header ──────────────────────────
+                             Fixed layout: 3 columns × 3 rows.
+                             Col 0 = labels (Auto), Col 1 = inputs (*), Col 2 = button groups (Auto).
+                             Row 0 = send-new-message row, Row 1 = spacer, Row 2 = copy/move row.
+                             No pixel-margin hacks — every element is in its own cell.
+                        ─────────────────────────────────────────────────── -->
+                        <Grid DockPanel.Dock="Top" Margin="14,10,14,8">
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
+                                <RowDefinition Height="28" />
+                                <RowDefinition Height="6" />
+                                <RowDefinition Height="28" />
                             </Grid.RowDefinitions>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                <TextBlock Text="Label: " Foreground="{StaticResource MutedForegroundBrush}" />
-                                <TextBlock Text="{Binding SelectedMessage.Label, TargetNullValue=No message selected}" FontWeight="SemiBold" />
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />   <!-- section label -->
+                                <ColumnDefinition Width="*" />      <!-- text input -->
+                                <ColumnDefinition Width="Auto" />   <!-- buttons -->
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Row 0: "Detail" label | message label input | Send / Export / Delete -->
+                            <TextBlock Grid.Row="0" Grid.Column="0"
+                                       Text="Message Detail"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,10,0" />
+                            <TextBox Grid.Row="0" Grid.Column="1"
+                                     Text="{Binding NewMessageLabel, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="Label for the test message" />
+                            <StackPanel Grid.Row="0" Grid.Column="2"
+                                        Orientation="Horizontal">
+                                <Button Command="{Binding SendMessageCommand}"
+                                        Content="Send"
+                                        Margin="8,0,0,0"
+                                        ToolTip="Send test message to selected queue" />
+                                <Button Command="{Binding ExportSelectedMessageCommand}"
+                                        Content="Export"
+                                        Margin="4,0,0,0"
+                                        ToolTip="Export selected message body to a file" />
+                                <Button Command="{Binding DeleteSelectedMessageCommand}"
+                                        Content="Delete"
+                                        Margin="4,0,0,0"
+                                        ToolTip="Delete selected message (requires confirmation)" />
                             </StackPanel>
+
+                            <!-- Row 2: "Target" label | target queue path input | Copy / Move -->
+                            <TextBlock Grid.Row="2" Grid.Column="0"
+                                       Text="Target Queue"
+                                       Style="{StaticResource ToolbarLabel}"
+                                       Margin="0,0,10,0" />
+                            <TextBox Grid.Row="2" Grid.Column="1"
+                                     Text="{Binding TargetQueuePath, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="Destination queue for copy/move (e.g. .\private$\target or \\srv\private$\q)" />
+                            <StackPanel Grid.Row="2" Grid.Column="2"
+                                        Orientation="Horizontal">
+                                <Button Command="{Binding CopySelectedMessageCommand}"
+                                        Content="Copy"
+                                        Margin="8,0,0,0"
+                                        ToolTip="Copy selected message to target queue" />
+                                <Button Command="{Binding MoveSelectedMessageCommand}"
+                                        Content="Move"
+                                        Margin="4,0,0,0"
+                                        ToolTip="Move selected message to target queue (requires confirmation)" />
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- ── Message body area ─────────────────────────── -->
+                        <Grid Margin="14,0,14,12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />   <!-- selected-message label -->
+                                <RowDefinition Height="Auto" />   <!-- test body composer -->
+                                <RowDefinition Height="*" />      <!-- body viewer tabs -->
+                            </Grid.RowDefinitions>
+
+                            <!-- Selected message label display -->
+                            <StackPanel Grid.Row="0"
+                                        Orientation="Horizontal"
+                                        Margin="0,0,0,6">
+                                <TextBlock Text="Label: "
+                                           Foreground="{StaticResource MutedForegroundBrush}"
+                                           FontSize="12" />
+                                <TextBlock Text="{Binding SelectedMessage.Label, TargetNullValue=No message selected}"
+                                           FontWeight="SemiBold"
+                                           FontSize="12" />
+                            </StackPanel>
+
+                            <!-- Test message body composer -->
                             <TextBox Grid.Row="1"
-                                     Height="52"
+                                     Height="48"
                                      Margin="0,0,0,8"
                                      Text="{Binding NewMessageBody, UpdateSourceTrigger=PropertyChanged}"
                                      AcceptsReturn="True"
                                      TextWrapping="Wrap"
                                      VerticalScrollBarVisibility="Auto"
                                      FontFamily="Consolas"
-                                     Background="{StaticResource PanelAltBrush}"
-                                     Foreground="{StaticResource ForegroundBrush}"
-                                     BorderBrush="{StaticResource BorderBrush}" />
-                            <TabControl Grid.Row="2" Background="{StaticResource PanelBrush}" Foreground="{StaticResource ForegroundBrush}">
+                                     FontSize="12"
+                                     ToolTip="Body of the test message to send" />
+
+                            <!-- Body viewer: Text / JSON / XML / Hex tabs -->
+                            <TabControl Grid.Row="2"
+                                        Background="{StaticResource PanelBrush}"
+                                        Foreground="{StaticResource ForegroundBrush}"
+                                        BorderBrush="{StaticResource BorderBrush}">
                                 <TabItem Header="Text">
-                                    <TextBox Text="{Binding SelectedBodyText, TargetNullValue=Select a message to read its body.}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" Background="{StaticResource PanelAltBrush}" Foreground="{StaticResource ForegroundBrush}" BorderBrush="{StaticResource BorderBrush}" />
+                                    <TextBox Text="{Binding SelectedBodyText, TargetNullValue=Select a message to read its body.}"
+                                             IsReadOnly="True" AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             VerticalScrollBarVisibility="Auto"
+                                             HorizontalScrollBarVisibility="Auto"
+                                             FontFamily="Consolas" FontSize="12" />
                                 </TabItem>
                                 <TabItem Header="JSON">
-                                    <TextBox Text="{Binding SelectedBodyJson}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" Background="{StaticResource PanelAltBrush}" Foreground="{StaticResource ForegroundBrush}" BorderBrush="{StaticResource BorderBrush}" />
+                                    <TextBox Text="{Binding SelectedBodyJson}"
+                                             IsReadOnly="True" AcceptsReturn="True"
+                                             TextWrapping="NoWrap"
+                                             VerticalScrollBarVisibility="Auto"
+                                             HorizontalScrollBarVisibility="Auto"
+                                             FontFamily="Consolas" FontSize="12" />
                                 </TabItem>
                                 <TabItem Header="XML">
-                                    <TextBox Text="{Binding SelectedBodyXml}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" Background="{StaticResource PanelAltBrush}" Foreground="{StaticResource ForegroundBrush}" BorderBrush="{StaticResource BorderBrush}" />
+                                    <TextBox Text="{Binding SelectedBodyXml}"
+                                             IsReadOnly="True" AcceptsReturn="True"
+                                             TextWrapping="NoWrap"
+                                             VerticalScrollBarVisibility="Auto"
+                                             HorizontalScrollBarVisibility="Auto"
+                                             FontFamily="Consolas" FontSize="12" />
                                 </TabItem>
                                 <TabItem Header="Hex">
-                                    <TextBox Text="{Binding SelectedBodyHex}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" Background="{StaticResource PanelAltBrush}" Foreground="{StaticResource ForegroundBrush}" BorderBrush="{StaticResource BorderBrush}" />
+                                    <TextBox Text="{Binding SelectedBodyHex}"
+                                             IsReadOnly="True" AcceptsReturn="True"
+                                             TextWrapping="NoWrap"
+                                             VerticalScrollBarVisibility="Auto"
+                                             HorizontalScrollBarVisibility="Auto"
+                                             FontFamily="Consolas" FontSize="12" />
                                 </TabItem>
                             </TabControl>
                         </Grid>
                     </DockPanel>
                 </Border>
+
             </Grid>
         </Grid>
 
-        <StatusBar Grid.Row="2" Background="{StaticResource PanelBrush}" Foreground="{StaticResource MutedForegroundBrush}">
-            <StatusBarItem Content="{Binding StatusMessage}" />
+        <!-- ═══════════════════════════════════════════════════════════════════
+             STATUS BAR
+             Segments: status message | busy indicator | auto-refresh status
+                       | selected queue path | filtered message count
+        ══════════════════════════════════════════════════════════════════════ -->
+        <StatusBar Grid.Row="2"
+                   Background="{StaticResource PanelBrush}"
+                   Foreground="{StaticResource MutedForegroundBrush}"
+                   BorderBrush="{StaticResource BorderBrush}"
+                   BorderThickness="0,1,0,0">
+
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}" FontSize="12" />
+            </StatusBarItem>
+
+            <!-- IsBusy indicator — visible only while an operation is running -->
+            <StatusBarItem Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <TextBlock Text="⟳ Loading…"
+                           Foreground="{StaticResource AccentBrush}"
+                           FontSize="12" />
+            </StatusBarItem>
+
             <Separator />
-            <StatusBarItem Content="{Binding AutoRefreshStatus}" />
+
+            <StatusBarItem>
+                <TextBlock Text="{Binding AutoRefreshStatus}" FontSize="12" />
+            </StatusBarItem>
+
             <Separator />
-            <StatusBarItem Content="{Binding SelectedQueue.Path, TargetNullValue=No queue selected}" />
+
+            <StatusBarItem>
+                <TextBlock Text="{Binding SelectedQueue.Path, TargetNullValue=No queue selected}"
+                           FontSize="12" />
+            </StatusBarItem>
+
+            <Separator />
+
+            <!-- Filtered message count -->
+            <StatusBarItem>
+                <TextBlock FontSize="12">
+                    <Run Text="{Binding FilteredMessages.Count, Mode=OneWay}" />
+                    <Run Text=" message(s)" />
+                </TextBlock>
+            </StatusBarItem>
+
         </StatusBar>
     </Grid>
 </Window>
