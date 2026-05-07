@@ -18,4 +18,9 @@ public interface IMsmqService
     /// Peeks message metadata from the specified queue without removing messages.
     /// </summary>
     Task<IReadOnlyList<MessageInfo>> GetMessagesAsync(string queuePath, int maxCount = 100, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sends a new text message to the specified queue.
+    /// </summary>
+    Task SendMessageAsync(string queuePath, string label, string bodyText, CancellationToken cancellationToken = default);
 }

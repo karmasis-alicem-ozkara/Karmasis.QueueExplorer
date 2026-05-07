@@ -171,9 +171,29 @@
 
                 <Border Grid.Row="2" Margin="12" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="Message Detail" Margin="14" FontSize="14" FontWeight="SemiBold" />
+                        <Grid DockPanel.Dock="Top" Margin="14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="190" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Message Detail" FontSize="14" FontWeight="SemiBold" />
+                            <TextBox Grid.Column="1"
+                                     Height="26"
+                                     Margin="8,0"
+                                     Text="{Binding NewMessageLabel, UpdateSourceTrigger=PropertyChanged}"
+                                     Background="{StaticResource PanelAltBrush}"
+                                     Foreground="{StaticResource ForegroundBrush}"
+                                     BorderBrush="{StaticResource BorderBrush}" />
+                            <Button Grid.Column="2"
+                                    Width="92"
+                                    Height="26"
+                                    Command="{Binding SendMessageCommand}"
+                                    Content="Send Test" />
+                        </Grid>
                         <Grid Margin="12,0,12,12">
                             <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
@@ -181,7 +201,18 @@
                                 <TextBlock Text="Label: " Foreground="{StaticResource MutedForegroundBrush}" />
                                 <TextBlock Text="{Binding SelectedMessage.Label, TargetNullValue=No message selected}" FontWeight="SemiBold" />
                             </StackPanel>
-                            <TabControl Grid.Row="1" Background="{StaticResource PanelBrush}" Foreground="{StaticResource ForegroundBrush}">
+                            <TextBox Grid.Row="1"
+                                     Height="52"
+                                     Margin="0,0,0,8"
+                                     Text="{Binding NewMessageBody, UpdateSourceTrigger=PropertyChanged}"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     VerticalScrollBarVisibility="Auto"
+                                     FontFamily="Consolas"
+                                     Background="{StaticResource PanelAltBrush}"
+                                     Foreground="{StaticResource ForegroundBrush}"
+                                     BorderBrush="{StaticResource BorderBrush}" />
+                            <TabControl Grid.Row="2" Background="{StaticResource PanelBrush}" Foreground="{StaticResource ForegroundBrush}">
                                 <TabItem Header="Text">
                                     <TextBox Text="{Binding SelectedBodyText, TargetNullValue=Select a message to read its body.}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" Background="{StaticResource PanelAltBrush}" Foreground="{StaticResource ForegroundBrush}" BorderBrush="{StaticResource BorderBrush}" />
                                 </TabItem>

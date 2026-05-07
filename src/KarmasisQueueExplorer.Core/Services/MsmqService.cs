@@ -47,6 +47,56 @@ public sealed class MsmqService : IMsmqService
         return Task.Run<IReadOnlyList<MessageInfo>>(() => PeekMessages(queuePath, maxCount, cancellationToken), cancellationToken);
     }
 
+    /// <inheritdoc />
+    public Task SendMessageAsync(string queuePath, string label, string bodyText, CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() => SendTextMessage(queuePath, label, bodyText, cancellationToken), cancellationToken);
+    }
+
+    private void SendTextMessage(string queuePath, string label, string bodyText, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!OperatingSystem.IsWindows())
+        {
+            throw new MsmqUnavailableException("MSMQ sending is only supported on Windows.");
+        }
+
+        object? queue = null;
+
+        try
+        {
+            var queueInfoType = Type.GetTypeFromProgID("MSMQ.MSMQQueueInfo");
+            var messageType = Type.GetTypeFromProgID("MSMQ.MSMQMessage");
+            if (queueInfoType is null || messageType is null)
+            {
+                throw new MsmqUnavailableException("MSMQ COM components are unavailable. Enable the 'Microsoft Message Queue (MSMQ) Server' Windows Feature and refresh.");
+            }
+
+            dynamic queueInfo = Activator.CreateInstance(queueInfoType)!;
+            queueInfo.PathName = queuePath;
+            queue = queueInfo.Open(2, MqDenyNone);
+
+            dynamic message = Activator.CreateInstance(messageType)!;
+            message.Label = string.IsNullOrWhiteSpace(label) ? "KarmasisQueueExplorer Test Message" : label.Trim();
+            message.Body = bodyText ?? string.Empty;
+            message.Send(queue);
+        }
+        catch (MsmqUnavailableException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to send message to {QueuePath}.", queuePath);
+            throw new InvalidOperationException($"Failed to send message to {queuePath}: {ex.Message}", ex);
+        }
+        finally
+        {
+            TryCloseComQueue(queue);
+        }
+    }
+
     private IReadOnlyList<MessageInfo> PeekMessages(string queuePath, int maxCount, CancellationToken cancellationToken)
     {
         if (!OperatingSystem.IsWindows())

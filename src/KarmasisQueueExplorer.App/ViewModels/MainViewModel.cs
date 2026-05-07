@@ -31,6 +31,12 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
     private string _messageFilterText = string.Empty;
 
     [ObservableProperty]
+    private string _newMessageLabel = "KarmasisQueueExplorer Test Message";
+
+    [ObservableProperty]
+    private string _newMessageBody = "{ \"source\": \"KarmasisQueueExplorer\", \"type\": \"test\" }";
+
+    [ObservableProperty]
     private MessageInfo? _selectedMessage;
 
     [ObservableProperty]
@@ -194,6 +200,38 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
         }
 
         await LoadMessagesAsync(SelectedQueue, cancellationToken);
+    }
+
+    [RelayCommand]
+    private async Task SendMessageAsync(CancellationToken cancellationToken)
+    {
+        if (SelectedQueue is null)
+        {
+            StatusMessage = "Select a queue before sending a message.";
+            return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            StatusMessage = $"Sending message to {SelectedQueue.Path}...";
+
+            await msmqService.SendMessageAsync(SelectedQueue.Path, NewMessageLabel, NewMessageBody, cancellationToken);
+            StatusMessage = $"Sent message to {SelectedQueue.Name}.";
+            await LoadMessagesAsync(SelectedQueue, cancellationToken, silent: true);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Send message cancelled.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to send message: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
     private async Task LoadMessagesAndStartAutoRefreshAsync(QueueNodeViewModel queue)

@@ -150,6 +150,34 @@ public sealed class MainViewModelTests
     }
 
     [Test]
+    public async Task SendMessageCommand_WhenQueueSelected_SendsMessageAndRefreshesList()
+    {
+        var service = new StubMsmqService(
+        [
+            new QueueInfo("orders", @".\private$\orders", ".", QueueType.Private)
+        ], []);
+        var viewModel = new MainViewModel(service)
+        {
+            IsAutoRefreshEnabled = false,
+            NewMessageLabel = "ManualTest",
+            NewMessageBody = "hello queue"
+        };
+
+        await viewModel.LoadLocalQueuesCommand.ExecuteAsync(null);
+        viewModel.SelectedTreeItem = viewModel.QueueGroups.Single().Children.Single();
+        await viewModel.SendMessageCommand.ExecuteAsync(null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.LastSentQueuePath, Is.EqualTo(@".\private$\orders"));
+            Assert.That(service.LastSentLabel, Is.EqualTo("ManualTest"));
+            Assert.That(service.LastSentBody, Is.EqualTo("hello queue"));
+            Assert.That(viewModel.StatusMessage, Does.Contain("Loaded"));
+            Assert.That(viewModel.IsBusy, Is.False);
+        });
+    }
+
+    [Test]
     public async Task LoadLocalQueuesCommand_WhenServiceFails_UpdatesStatusAndClearsBusyFlag()
     {
         var viewModel = new MainViewModel(new ThrowingMsmqService());
@@ -184,6 +212,9 @@ public sealed class MainViewModelTests
     private sealed class StubMsmqService(IReadOnlyList<QueueInfo> queues, IReadOnlyList<MessageInfo>? messages = null) : IMsmqService
     {
         public string? LastMachineName { get; private set; }
+        public string? LastSentQueuePath { get; private set; }
+        public string? LastSentLabel { get; private set; }
+        public string? LastSentBody { get; private set; }
 
         public Task<IReadOnlyList<QueueInfo>> GetQueuesAsync(string machineName, CancellationToken cancellationToken = default)
         {
@@ -194,6 +225,14 @@ public sealed class MainViewModelTests
         public Task<IReadOnlyList<MessageInfo>> GetMessagesAsync(string queuePath, int maxCount = 100, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(messages ?? []);
+        }
+
+        public Task SendMessageAsync(string queuePath, string label, string bodyText, CancellationToken cancellationToken = default)
+        {
+            LastSentQueuePath = queuePath;
+            LastSentLabel = label;
+            LastSentBody = bodyText;
+            return Task.CompletedTask;
         }
     }
 
@@ -218,6 +257,11 @@ public sealed class MainViewModelTests
         {
             return Task.FromResult<IReadOnlyList<MessageInfo>>([]);
         }
+
+        public Task SendMessageAsync(string queuePath, string label, string bodyText, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class UnavailableMsmqService : IMsmqService
@@ -230,6 +274,11 @@ public sealed class MainViewModelTests
         public Task<IReadOnlyList<MessageInfo>> GetMessagesAsync(string queuePath, int maxCount = 100, CancellationToken cancellationToken = default)
         {
             return Task.FromResult<IReadOnlyList<MessageInfo>>([]);
+        }
+
+        public Task SendMessageAsync(string queuePath, string label, string bodyText, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
         }
     }
 }
