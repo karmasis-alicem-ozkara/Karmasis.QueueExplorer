@@ -19,6 +19,7 @@ public partial class App : Application
             .ConfigureServices(services =>
             {
                 services.AddSingleton<IMsmqService, MsmqService>();
+                services.AddSingleton<IMessageBodyFormatter, MessageBodyFormatter>();
                 services.AddTransient<MainViewModel>();
                 services.AddTransient<MainWindow>();
             })

@@ -6,8 +6,9 @@ using KarmasisQueueExplorer.Core.Models;
 
 namespace KarmasisQueueExplorer.App.ViewModels;
 
-public sealed partial class MainViewModel(IMsmqService msmqService) : ObservableObject
+public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBodyFormatter? messageBodyFormatter = null) : ObservableObject
 {
+    private readonly IMessageBodyFormatter _messageBodyFormatter = messageBodyFormatter ?? new MessageBodyFormatter();
     private readonly SynchronizationContext? _synchronizationContext = SynchronizationContext.Current;
     private CancellationTokenSource? _messageRefreshCts;
 
@@ -22,6 +23,18 @@ public sealed partial class MainViewModel(IMsmqService msmqService) : Observable
 
     [ObservableProperty]
     private MessageInfo? _selectedMessage;
+
+    [ObservableProperty]
+    private string _selectedBodyText = string.Empty;
+
+    [ObservableProperty]
+    private string _selectedBodyJson = string.Empty;
+
+    [ObservableProperty]
+    private string _selectedBodyXml = string.Empty;
+
+    [ObservableProperty]
+    private string _selectedBodyHex = string.Empty;
 
     [ObservableProperty]
     private QueueNodeViewModel? _selectedQueue;
@@ -73,6 +86,16 @@ public sealed partial class MainViewModel(IMsmqService msmqService) : Observable
             StatusMessage = $"Selected queue: {value.Path}";
             _ = LoadMessagesAndStartAutoRefreshAsync(value);
         }
+    }
+
+    partial void OnSelectedMessageChanged(MessageInfo? value)
+    {
+        var bodyText = value?.BodyText ?? string.Empty;
+
+        SelectedBodyText = bodyText;
+        SelectedBodyJson = _messageBodyFormatter.FormatJson(bodyText);
+        SelectedBodyXml = _messageBodyFormatter.FormatXml(bodyText);
+        SelectedBodyHex = _messageBodyFormatter.FormatHex(bodyText);
     }
 
     partial void OnIsAutoRefreshEnabledChanged(bool value)

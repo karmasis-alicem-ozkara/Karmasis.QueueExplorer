@@ -78,6 +78,8 @@ public sealed class MainViewModelTests
             Assert.That(viewModel.Messages.Single().Label, Is.EqualTo("OrderCreated"));
             Assert.That(viewModel.Messages.Single().BodyText, Does.Contain("orderId"));
             Assert.That(viewModel.SelectedMessage, Is.Not.Null);
+            Assert.That(viewModel.SelectedBodyJson, Does.Contain(Environment.NewLine));
+            Assert.That(viewModel.SelectedBodyHex, Does.Contain("orderId"));
             Assert.That(viewModel.LastMessageRefreshTime, Is.Not.Null);
         });
     }

@@ -156,17 +156,20 @@
                                 <TextBlock Text="Label: " Foreground="{StaticResource MutedForegroundBrush}" />
                                 <TextBlock Text="{Binding SelectedMessage.Label, TargetNullValue=No message selected}" FontWeight="SemiBold" />
                             </StackPanel>
-                            <TextBox Grid.Row="1"
-                                     Text="{Binding SelectedMessage.BodyText, TargetNullValue=Select a message to read its body.}"
-                                     IsReadOnly="True"
-                                     AcceptsReturn="True"
-                                     TextWrapping="Wrap"
-                                     VerticalScrollBarVisibility="Auto"
-                                     HorizontalScrollBarVisibility="Auto"
-                                     FontFamily="Consolas"
-                                     Background="{StaticResource PanelAltBrush}"
-                                     Foreground="{StaticResource ForegroundBrush}"
-                                     BorderBrush="{StaticResource BorderBrush}" />
+                            <TabControl Grid.Row="1" Background="{StaticResource PanelBrush}" Foreground="{StaticResource ForegroundBrush}">
+                                <TabItem Header="Text">
+                                    <TextBox Text="{Binding SelectedBodyText, TargetNullValue=Select a message to read its body.}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" Background="{StaticResource PanelAltBrush}" Foreground="{StaticResource ForegroundBrush}" BorderBrush="{StaticResource BorderBrush}" />
+                                </TabItem>
+                                <TabItem Header="JSON">
+                                    <TextBox Text="{Binding SelectedBodyJson}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" Background="{StaticResource PanelAltBrush}" Foreground="{StaticResource ForegroundBrush}" BorderBrush="{StaticResource BorderBrush}" />
+                                </TabItem>
+                                <TabItem Header="XML">
+                                    <TextBox Text="{Binding SelectedBodyXml}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" Background="{StaticResource PanelAltBrush}" Foreground="{StaticResource ForegroundBrush}" BorderBrush="{StaticResource BorderBrush}" />
+                                </TabItem>
+                                <TabItem Header="Hex">
+                                    <TextBox Text="{Binding SelectedBodyHex}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" Background="{StaticResource PanelAltBrush}" Foreground="{StaticResource ForegroundBrush}" BorderBrush="{StaticResource BorderBrush}" />
+                                </TabItem>
+                            </TabControl>
                         </Grid>
                     </DockPanel>
                 </Border>
