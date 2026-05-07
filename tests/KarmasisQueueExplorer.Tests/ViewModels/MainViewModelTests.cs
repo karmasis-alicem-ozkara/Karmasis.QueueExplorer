@@ -100,10 +100,22 @@ public sealed class MainViewModelTests
             Assert.That(viewModel.Messages.Single().Label, Is.EqualTo("OrderCreated"));
             Assert.That(viewModel.Messages.Single().BodyText, Does.Contain("orderId"));
             Assert.That(viewModel.SelectedMessage, Is.Not.Null);
+            Assert.That(viewModel.SelectedQueue?.MessageCount, Is.EqualTo(1));
+            Assert.That(viewModel.SelectedQueue?.DisplayName, Is.EqualTo("orders (1)"));
             Assert.That(viewModel.SelectedBodyJson, Does.Contain(Environment.NewLine));
             Assert.That(viewModel.SelectedBodyHex, Does.Contain("orderId"));
             Assert.That(viewModel.LastMessageRefreshTime, Is.Not.Null);
         });
+    }
+
+    [Test]
+    public void QueueNodeViewModel_WhenMessageCountChanges_UpdatesDisplayName()
+    {
+        var viewModel = new QueueNodeViewModel(new QueueInfo("orders", @".\private$\orders", ".", QueueType.Private));
+
+        viewModel.MessageCount = 3;
+
+        Assert.That(viewModel.DisplayName, Is.EqualTo("orders (3)"));
     }
 
     [Test]

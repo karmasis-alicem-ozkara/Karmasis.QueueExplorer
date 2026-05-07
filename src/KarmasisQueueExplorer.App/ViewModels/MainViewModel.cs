@@ -486,6 +486,7 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
             {
                 var previousSelectedId = SelectedMessage?.Id;
                 Messages = new ObservableCollection<MessageInfo>(messages);
+                queue.MessageCount = Messages.Count;
                 ApplyMessageFilter();
                 SelectedMessage = FilteredMessages.FirstOrDefault(message => message.Id == previousSelectedId) ?? FilteredMessages.FirstOrDefault();
                 LastMessageRefreshTime = DateTime.Now;

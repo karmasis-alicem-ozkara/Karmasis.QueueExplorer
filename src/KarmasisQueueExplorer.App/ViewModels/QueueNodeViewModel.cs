@@ -7,9 +7,9 @@ public sealed partial class QueueNodeViewModel(QueueInfo queue) : ObservableObje
 {
     public string Name { get; } = queue.Name;
 
-    public string DisplayName { get; } = queue.MessageCount is null
-        ? queue.Name
-        : $"{queue.Name} ({queue.MessageCount})";
+    public string DisplayName => MessageCount is null
+        ? Name
+        : $"{Name} ({MessageCount})";
 
     public string Path { get; } = queue.Path;
 
@@ -17,5 +17,7 @@ public sealed partial class QueueNodeViewModel(QueueInfo queue) : ObservableObje
 
     public QueueType Type { get; } = queue.Type;
 
-    public int? MessageCount { get; } = queue.MessageCount;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayName))]
+    private int? _messageCount = queue.MessageCount;
 }
