@@ -390,6 +390,16 @@ public sealed class MsmqService : IMsmqService
         if (_useMsmqApplicationDiscovery)
         {
             queues.AddRange(TryDiscoverPrivateQueuesFromMsmqApplication(machineName, cancellationToken));
+
+            if (!IsLocalMachine(machineName))
+            {
+                if (queues.Count == 0)
+                {
+                    throw new MsmqUnavailableException($"Could not discover private queues on '{machineName}'. Ensure MSMQ remote queue management is allowed and your account has permission to view queues on that machine.");
+                }
+
+                return SortAndDeduplicateQueues(queues);
+            }
         }
 
         var lqsPath = _lqsPathResolver(machineName);

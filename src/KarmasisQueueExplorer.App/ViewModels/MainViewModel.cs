@@ -33,6 +33,9 @@ public sealed partial class MainViewModel(
     private ObservableCollection<QueueGroupViewModel> _queueGroups = [];
 
     [ObservableProperty]
+    private ObservableCollection<QueueGroupViewModel> _queueTreeGroups = [];
+
+    [ObservableProperty]
     private string _targetMachineName = ".";
 
     [ObservableProperty]
@@ -298,6 +301,7 @@ public sealed partial class MainViewModel(
             var queues = await msmqService.GetQueuesAsync(TargetMachineName, cancellationToken);
             Queues = new ObservableCollection<QueueNodeViewModel>(queues.Select(queue => new QueueNodeViewModel(queue)));
             QueueGroups = BuildQueueGroups(Queues);
+            QueueTreeGroups = BuildQueueTreeGroups(Queues, TargetMachineName);
             StatusMessage = Queues.Count == 0
                 ? $"No MSMQ queues found on {TargetMachineName}"
                 : $"Loaded {Queues.Count} queue(s) from {TargetMachineName}";
@@ -310,6 +314,7 @@ public sealed partial class MainViewModel(
         {
             Queues = [];
             QueueGroups = [];
+            QueueTreeGroups = [];
             WarningMessage = ex.Message;
             StatusMessage = "MSMQ is unavailable.";
         }
@@ -711,6 +716,14 @@ public sealed partial class MainViewModel(
         ];
 
         return new ObservableCollection<QueueGroupViewModel>(groups.Where(group => group.Count > 0));
+    }
+
+    private static ObservableCollection<QueueGroupViewModel> BuildQueueTreeGroups(IEnumerable<QueueNodeViewModel> queues, string machineName)
+    {
+        var groups = BuildQueueGroups(queues);
+        return groups.Count == 0
+            ? []
+            : [new QueueGroupViewModel(string.IsNullOrWhiteSpace(machineName) ? "." : machineName.Trim(), groups)];
     }
 
     private sealed class NoOpDialogService : IDialogService

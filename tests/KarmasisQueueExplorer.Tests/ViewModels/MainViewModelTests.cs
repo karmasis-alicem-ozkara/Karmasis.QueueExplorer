@@ -54,6 +54,33 @@ public sealed class MainViewModelTests
     }
 
     [Test]
+    public async Task LoadLocalQueuesCommand_BuildsMachineRootedQueueTree()
+    {
+        var service = new StubMsmqService(
+        [
+            new QueueInfo("ela", @"192.168.1.54\private$\ela", "192.168.1.54", QueueType.Private),
+            new QueueInfo("elaalerts", @"192.168.1.54\private$\elaalerts", "192.168.1.54", QueueType.Private),
+            new QueueInfo("elacmd", @"192.168.1.54\private$\elacmd", "192.168.1.54", QueueType.Private)
+        ]);
+        var viewModel = new MainViewModel(service)
+        {
+            TargetMachineName = "192.168.1.54"
+        };
+
+        await viewModel.LoadLocalQueuesCommand.ExecuteAsync(null);
+
+        var machine = viewModel.QueueTreeGroups.Single();
+        var privateQueues = (QueueGroupViewModel)machine.Children.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(machine.Name, Is.EqualTo("192.168.1.54"));
+            Assert.That(privateQueues.Name, Is.EqualTo("Private Queues"));
+            Assert.That(privateQueues.Children.Cast<QueueNodeViewModel>().Select(queue => queue.Name), Is.EqualTo(new[] { "ela", "elaalerts", "elacmd" }));
+        });
+    }
+
+    [Test]
     public async Task SelectedTreeItem_WhenQueueNodeSelected_UpdatesSelectedQueueAndStatus()
     {
         var viewModel = new MainViewModel(new StubMsmqService(

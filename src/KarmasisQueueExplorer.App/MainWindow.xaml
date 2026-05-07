@@ -166,7 +166,7 @@
                                    Foreground="{StaticResource WarningFgBrush}" />
                     </Border>
 
-                    <TreeView ItemsSource="{Binding QueueGroups}"
+                    <TreeView ItemsSource="{Binding QueueTreeGroups}"
                               behaviors:TreeViewSelectionBehavior.SelectedItem="{Binding SelectedTreeItem, Mode=TwoWay}"
                               Background="{StaticResource PanelBrush}"
                               BorderThickness="0"
