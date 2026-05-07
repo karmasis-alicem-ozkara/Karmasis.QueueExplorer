@@ -17,7 +17,6 @@ public sealed partial class MainViewModel(
     private readonly IMessageExportService _messageExportService = messageExportService ?? new MessageExportService();
     private readonly IDialogService _dialogService = dialogService ?? new NoOpDialogService();
     private readonly IConnectionProfileStore _connectionProfileStore = connectionProfileStore ?? new NoOpConnectionProfileStore();
-    private readonly SynchronizationContext? _synchronizationContext = SynchronizationContext.Current;
     private CancellationTokenSource? _messageRefreshCts;
 
     /// <summary>
@@ -640,29 +639,19 @@ public sealed partial class MainViewModel(
         }
     }
 
-    private Task RunOnUiThreadAsync(Action action)
+    private static Task RunOnUiThreadAsync(Action action)
     {
-        if (_synchronizationContext is null || SynchronizationContext.Current == _synchronizationContext)
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+
+        // If there is no dispatcher (unit test context) or we are already on the UI thread,
+        // invoke directly to avoid unnecessary marshalling overhead.
+        if (dispatcher is null || dispatcher.CheckAccess())
         {
             action();
             return Task.CompletedTask;
         }
 
-        var completion = new TaskCompletionSource();
-        _synchronizationContext.Post(_ =>
-        {
-            try
-            {
-                action();
-                completion.SetResult();
-            }
-            catch (Exception ex)
-            {
-                completion.SetException(ex);
-            }
-        }, null);
-
-        return completion.Task;
+        return dispatcher.InvokeAsync(action).Task;
     }
 
     private void ApplyMessageFilter()

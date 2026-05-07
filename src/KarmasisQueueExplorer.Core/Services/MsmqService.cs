@@ -269,16 +269,30 @@ public sealed class MsmqService : IMsmqService
         }
     }
 
+    // MQ_ERROR_IO_TIMEOUT      = 0xC00E001B — normal end-of-queue sentinel (timeout=0)
+    // MQ_ERROR_MESSAGE_NOT_FOUND = 0xC00E0088 — no message matching cursor
+    private static readonly uint[] _endOfQueueHResults = [0xC00E001Bu, 0xC00E0088u];
+
     private object? TryPeekMessage(dynamic queue, object? cursor, bool first)
     {
         try
         {
+            // PeekCurrentByCursor / PeekNextByCursor require the cursor as the FIRST argument.
+            // Parameters: cursor, wantDestinationQueue, wantBody, ReceiveTimeout (ms), wantConnectorType
+            // ReceiveTimeout=0 → return immediately; throws MQ_ERROR_IO_TIMEOUT when no more messages.
             return first
-                ? queue.PeekCurrent(0, false, true, cursor)
-                : queue.PeekNext(0, false, true, cursor);
+                ? queue.PeekCurrentByCursor(cursor, false, true, 0, false)
+                : queue.PeekNextByCursor(cursor, false, true, 0, false);
         }
-        catch
+        catch (System.Runtime.InteropServices.COMException ex)
+            when (Array.IndexOf(_endOfQueueHResults, (uint)ex.HResult) >= 0)
         {
+            // Normal signal: no more messages in the queue.
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Unexpected error while peeking messages from queue.");
             return null;
         }
     }
