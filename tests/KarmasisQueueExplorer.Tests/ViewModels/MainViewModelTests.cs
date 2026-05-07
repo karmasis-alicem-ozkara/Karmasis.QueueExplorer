@@ -136,6 +136,20 @@ public sealed class MainViewModelTests
     }
 
     [Test]
+    public void AutoRefreshStatus_ReflectsEnabledStateAndInterval()
+    {
+        var viewModel = new MainViewModel(new StubMsmqService([]));
+
+        viewModel.AutoRefreshIntervalSeconds = 5;
+
+        Assert.That(viewModel.AutoRefreshStatus, Is.EqualTo("Auto-refresh: On (5s)"));
+
+        viewModel.IsAutoRefreshEnabled = false;
+
+        Assert.That(viewModel.AutoRefreshStatus, Is.EqualTo("Auto-refresh: Paused"));
+    }
+
+    [Test]
     public async Task LoadLocalQueuesCommand_WhenServiceFails_UpdatesStatusAndClearsBusyFlag()
     {
         var viewModel = new MainViewModel(new ThrowingMsmqService());

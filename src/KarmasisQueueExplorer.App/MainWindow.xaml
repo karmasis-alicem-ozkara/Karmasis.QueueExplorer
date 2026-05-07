@@ -37,6 +37,14 @@
                           VerticalAlignment="Center"
                           IsChecked="{Binding IsAutoRefreshEnabled}"
                           Content="Auto refresh" />
+                <ComboBox DockPanel.Dock="Right"
+                          Width="70"
+                          Height="28"
+                          Margin="8,0,0,0"
+                          ItemsSource="{Binding AutoRefreshIntervalOptions}"
+                          SelectedItem="{Binding AutoRefreshIntervalSeconds, Mode=TwoWay}"
+                          Background="{StaticResource PanelAltBrush}"
+                          Foreground="{StaticResource ForegroundBrush}" />
                 <Button DockPanel.Dock="Right"
                         Width="92"
                         Height="30"
@@ -195,6 +203,8 @@
 
         <StatusBar Grid.Row="2" Background="{StaticResource PanelBrush}" Foreground="{StaticResource MutedForegroundBrush}">
             <StatusBarItem Content="{Binding StatusMessage}" />
+            <Separator />
+            <StatusBarItem Content="{Binding AutoRefreshStatus}" />
             <Separator />
             <StatusBarItem Content="{Binding SelectedQueue.Path, TargetNullValue=No queue selected}" />
         </StatusBar>

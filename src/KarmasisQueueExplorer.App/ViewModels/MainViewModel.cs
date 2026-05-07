@@ -68,11 +68,17 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
     [ObservableProperty]
     private bool _isAutoRefreshEnabled = true;
 
+    public IReadOnlyList<int> AutoRefreshIntervalOptions { get; } = [1, 2, 5, 10, 30];
+
     [ObservableProperty]
     private int _autoRefreshIntervalSeconds = 2;
 
     [ObservableProperty]
     private DateTime? _lastMessageRefreshTime;
+
+    public string AutoRefreshStatus => IsAutoRefreshEnabled
+        ? $"Auto-refresh: On ({AutoRefreshIntervalSeconds}s)"
+        : "Auto-refresh: Paused";
 
     partial void OnWarningMessageChanged(string value)
     {
@@ -114,6 +120,8 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
 
     partial void OnIsAutoRefreshEnabledChanged(bool value)
     {
+        OnPropertyChanged(nameof(AutoRefreshStatus));
+
         if (SelectedQueue is null)
         {
             return;
@@ -124,6 +132,19 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
         {
             _ = LoadMessagesAndStartAutoRefreshAsync(SelectedQueue);
         }
+    }
+
+    partial void OnAutoRefreshIntervalSecondsChanged(int value)
+    {
+        OnPropertyChanged(nameof(AutoRefreshStatus));
+
+        if (SelectedQueue is null || !IsAutoRefreshEnabled)
+        {
+            return;
+        }
+
+        _messageRefreshCts?.Cancel();
+        _ = LoadMessagesAndStartAutoRefreshAsync(SelectedQueue);
     }
 
     [RelayCommand]
