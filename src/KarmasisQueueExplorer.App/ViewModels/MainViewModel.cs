@@ -106,6 +106,7 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
         _messageRefreshCts?.Cancel();
         Messages = [];
         SelectedMessage = null;
+        RefreshCommandStates();
 
         if (value is not null)
         {
@@ -122,6 +123,13 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
         SelectedBodyJson = _messageBodyFormatter.FormatJson(bodyText);
         SelectedBodyXml = _messageBodyFormatter.FormatXml(bodyText);
         SelectedBodyHex = _messageBodyFormatter.FormatHex(bodyText);
+        RefreshCommandStates();
+    }
+
+    partial void OnTargetQueuePathChanged(string value)
+    {
+        CopySelectedMessageCommand.NotifyCanExecuteChanged();
+        MoveSelectedMessageCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnMessageFilterTextChanged(string value)
@@ -195,7 +203,7 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(HasSelectedQueue))]
     private async Task RefreshMessagesAsync(CancellationToken cancellationToken)
     {
         if (SelectedQueue is null)
@@ -207,7 +215,7 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
         await LoadMessagesAsync(SelectedQueue, cancellationToken);
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(HasSelectedQueue))]
     private async Task SendMessageAsync(CancellationToken cancellationToken)
     {
         if (SelectedQueue is null)
@@ -239,7 +247,7 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(HasSelectedMessage))]
     private async Task ExportSelectedMessageAsync(CancellationToken cancellationToken)
     {
         if (SelectedMessage is null)
@@ -268,7 +276,7 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(HasSelectedMessageAndQueue))]
     private async Task DeleteSelectedMessageAsync(CancellationToken cancellationToken)
     {
         if (SelectedQueue is null || SelectedMessage is null)
@@ -309,7 +317,7 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanCopyOrMoveSelectedMessage))]
     private async Task CopySelectedMessageAsync(CancellationToken cancellationToken)
     {
         if (SelectedMessage is null)
@@ -344,7 +352,7 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanCopyOrMoveSelectedMessage))]
     private async Task MoveSelectedMessageAsync(CancellationToken cancellationToken)
     {
         if (SelectedQueue is null || SelectedMessage is null)
@@ -393,7 +401,7 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(HasSelectedQueue))]
     private async Task PurgeSelectedQueueAsync(CancellationToken cancellationToken)
     {
         if (SelectedQueue is null)
@@ -549,6 +557,25 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
         {
             SelectedMessage = FilteredMessages.FirstOrDefault();
         }
+    }
+
+    private bool HasSelectedQueue() => SelectedQueue is not null;
+
+    private bool HasSelectedMessage() => SelectedMessage is not null;
+
+    private bool HasSelectedMessageAndQueue() => SelectedQueue is not null && SelectedMessage is not null;
+
+    private bool CanCopyOrMoveSelectedMessage() => SelectedMessage is not null && !string.IsNullOrWhiteSpace(TargetQueuePath);
+
+    private void RefreshCommandStates()
+    {
+        RefreshMessagesCommand.NotifyCanExecuteChanged();
+        SendMessageCommand.NotifyCanExecuteChanged();
+        ExportSelectedMessageCommand.NotifyCanExecuteChanged();
+        DeleteSelectedMessageCommand.NotifyCanExecuteChanged();
+        CopySelectedMessageCommand.NotifyCanExecuteChanged();
+        MoveSelectedMessageCommand.NotifyCanExecuteChanged();
+        PurgeSelectedQueueCommand.NotifyCanExecuteChanged();
     }
 
     private static ObservableCollection<QueueGroupViewModel> BuildQueueGroups(IEnumerable<QueueNodeViewModel> queues)

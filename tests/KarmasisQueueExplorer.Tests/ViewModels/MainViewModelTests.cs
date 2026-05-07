@@ -109,6 +109,55 @@ public sealed class MainViewModelTests
     }
 
     [Test]
+    public async Task OperationCommands_UpdateCanExecuteWhenQueueAndMessageSelectionChanges()
+    {
+        var viewModel = new MainViewModel(new StubMsmqService(
+        [
+            new QueueInfo("orders", @".\private$\orders", ".", QueueType.Private)
+        ],
+        [
+            new MessageInfo("id-1", "OrderCreated", DateTime.Today, 42, "Normal", "Normal", "body", "body")
+        ]))
+        {
+            IsAutoRefreshEnabled = false
+        };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.RefreshMessagesCommand.CanExecute(null), Is.False);
+            Assert.That(viewModel.SendMessageCommand.CanExecute(null), Is.False);
+            Assert.That(viewModel.ExportSelectedMessageCommand.CanExecute(null), Is.False);
+            Assert.That(viewModel.DeleteSelectedMessageCommand.CanExecute(null), Is.False);
+            Assert.That(viewModel.CopySelectedMessageCommand.CanExecute(null), Is.False);
+            Assert.That(viewModel.MoveSelectedMessageCommand.CanExecute(null), Is.False);
+            Assert.That(viewModel.PurgeSelectedQueueCommand.CanExecute(null), Is.False);
+        });
+
+        await viewModel.LoadLocalQueuesCommand.ExecuteAsync(null);
+        viewModel.SelectedTreeItem = viewModel.QueueGroups.Single().Children.Single();
+        await WaitUntilAsync(() => viewModel.SelectedMessage is not null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.RefreshMessagesCommand.CanExecute(null), Is.True);
+            Assert.That(viewModel.SendMessageCommand.CanExecute(null), Is.True);
+            Assert.That(viewModel.ExportSelectedMessageCommand.CanExecute(null), Is.True);
+            Assert.That(viewModel.DeleteSelectedMessageCommand.CanExecute(null), Is.True);
+            Assert.That(viewModel.PurgeSelectedQueueCommand.CanExecute(null), Is.True);
+            Assert.That(viewModel.CopySelectedMessageCommand.CanExecute(null), Is.False);
+            Assert.That(viewModel.MoveSelectedMessageCommand.CanExecute(null), Is.False);
+        });
+
+        viewModel.TargetQueuePath = @".\private$\archive";
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.CopySelectedMessageCommand.CanExecute(null), Is.True);
+            Assert.That(viewModel.MoveSelectedMessageCommand.CanExecute(null), Is.True);
+        });
+    }
+
+    [Test]
     public void QueueNodeViewModel_WhenMessageCountChanges_UpdatesDisplayName()
     {
         var viewModel = new QueueNodeViewModel(new QueueInfo("orders", @".\private$\orders", ".", QueueType.Private));
