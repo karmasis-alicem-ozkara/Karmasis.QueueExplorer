@@ -178,6 +178,34 @@ public sealed class MainViewModelTests
     }
 
     [Test]
+    public async Task ExportSelectedMessageCommand_WhenMessageSelected_ExportsMessage()
+    {
+        var exportService = new StubMessageExportService();
+        var viewModel = new MainViewModel(new StubMsmqService(
+        [
+            new QueueInfo("orders", @".\private$\orders", ".", QueueType.Private)
+        ],
+        [
+            new MessageInfo("id-1", "OrderCreated", DateTime.Today, 42, "Normal", "Normal", "body", "body")
+        ]), messageExportService: exportService)
+        {
+            IsAutoRefreshEnabled = false
+        };
+
+        await viewModel.LoadLocalQueuesCommand.ExecuteAsync(null);
+        viewModel.SelectedTreeItem = viewModel.QueueGroups.Single().Children.Single();
+        await WaitUntilAsync(() => viewModel.SelectedMessage is not null);
+        await viewModel.ExportSelectedMessageCommand.ExecuteAsync(null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exportService.ExportedMessage?.Label, Is.EqualTo("OrderCreated"));
+            Assert.That(exportService.QueuePath, Is.EqualTo(@".\private$\orders"));
+            Assert.That(viewModel.StatusMessage, Does.StartWith("Exported selected message to"));
+        });
+    }
+
+    [Test]
     public async Task LoadLocalQueuesCommand_WhenServiceFails_UpdatesStatusAndClearsBusyFlag()
     {
         var viewModel = new MainViewModel(new ThrowingMsmqService());
@@ -279,6 +307,20 @@ public sealed class MainViewModelTests
         public Task SendMessageAsync(string queuePath, string label, string bodyText, CancellationToken cancellationToken = default)
         {
             return Task.CompletedTask;
+        }
+    }
+
+    private sealed class StubMessageExportService : IMessageExportService
+    {
+        public MessageInfo? ExportedMessage { get; private set; }
+
+        public string? QueuePath { get; private set; }
+
+        public Task<string> ExportMessageAsync(MessageInfo message, string? queuePath, CancellationToken cancellationToken = default)
+        {
+            ExportedMessage = message;
+            QueuePath = queuePath;
+            return Task.FromResult(@"C:\exports\message.txt");
         }
     }
 }

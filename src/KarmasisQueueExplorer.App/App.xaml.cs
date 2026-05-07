@@ -20,6 +20,7 @@ public partial class App : Application
             {
                 services.AddSingleton<IMsmqService, MsmqService>();
                 services.AddSingleton<IMessageBodyFormatter, MessageBodyFormatter>();
+                services.AddSingleton<IMessageExportService, MessageExportService>();
                 services.AddTransient<MainViewModel>();
                 services.AddTransient<MainWindow>();
             })

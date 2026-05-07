@@ -6,9 +6,10 @@ using KarmasisQueueExplorer.Core.Models;
 
 namespace KarmasisQueueExplorer.App.ViewModels;
 
-public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBodyFormatter? messageBodyFormatter = null) : ObservableObject
+public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBodyFormatter? messageBodyFormatter = null, IMessageExportService? messageExportService = null) : ObservableObject
 {
     private readonly IMessageBodyFormatter _messageBodyFormatter = messageBodyFormatter ?? new MessageBodyFormatter();
+    private readonly IMessageExportService _messageExportService = messageExportService ?? new MessageExportService();
     private readonly SynchronizationContext? _synchronizationContext = SynchronizationContext.Current;
     private CancellationTokenSource? _messageRefreshCts;
 
@@ -227,6 +228,35 @@ public sealed partial class MainViewModel(IMsmqService msmqService, IMessageBody
         catch (Exception ex)
         {
             StatusMessage = $"Failed to send message: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ExportSelectedMessageAsync(CancellationToken cancellationToken)
+    {
+        if (SelectedMessage is null)
+        {
+            StatusMessage = "Select a message before exporting.";
+            return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            var filePath = await _messageExportService.ExportMessageAsync(SelectedMessage, SelectedQueue?.Path, cancellationToken);
+            StatusMessage = $"Exported selected message to {filePath}";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Message export cancelled.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Failed to export message: {ex.Message}";
         }
         finally
         {
